@@ -8,10 +8,10 @@ mod websocket;
 
 pub use app_state::AppState;
 
-use std::sync::Arc;
 use anyhow::Result;
-use axum::{Router, routing::get};
-use tower_http::cors::{CorsLayer, Any};
+use axum::{routing::get, Router};
+use std::sync::Arc;
+use tower_http::cors::{Any, CorsLayer};
 use tower_http::trace::TraceLayer;
 use tracing::info;
 
@@ -27,7 +27,7 @@ impl Server {
     /// Creates a new server instance.
     pub async fn new(config: AppConfig) -> Result<Self> {
         let state = AppState::new(&config).await?;
-        
+
         Ok(Self {
             config,
             state: Arc::new(state),
@@ -49,7 +49,10 @@ impl Server {
             // WebSocket
             .route("/ws", get(websocket::ws_handler))
             // Static files for recordings/snapshots
-            .nest_service("/files", tower_http::services::ServeDir::new(&self.config.data_dir))
+            .nest_service(
+                "/files",
+                tower_http::services::ServeDir::new(&self.config.data_dir),
+            )
             .layer(cors)
             .layer(TraceLayer::new_for_http())
             .with_state(self.state);

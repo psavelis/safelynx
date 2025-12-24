@@ -129,19 +129,40 @@ mod tests {
     #[test]
     fn new_sighting_generates_unique_id() {
         let bbox = BoundingBox::new(10, 20, 100, 100);
-        let s1 = Sighting::new(Uuid::new_v4(), Uuid::new_v4(), "path".into(), bbox.clone(), 0.9, None);
-        let s2 = Sighting::new(Uuid::new_v4(), Uuid::new_v4(), "path".into(), bbox, 0.9, None);
+        let s1 = Sighting::new(
+            Uuid::new_v4(),
+            Uuid::new_v4(),
+            "path".into(),
+            bbox.clone(),
+            0.9,
+            None,
+        );
+        let s2 = Sighting::new(
+            Uuid::new_v4(),
+            Uuid::new_v4(),
+            "path".into(),
+            bbox,
+            0.9,
+            None,
+        );
         assert_ne!(s1.id(), s2.id());
     }
 
     #[test]
     fn link_to_recording_sets_fields() {
         let bbox = BoundingBox::new(10, 20, 100, 100);
-        let mut sighting = Sighting::new(Uuid::new_v4(), Uuid::new_v4(), "path".into(), bbox, 0.9, None);
+        let mut sighting = Sighting::new(
+            Uuid::new_v4(),
+            Uuid::new_v4(),
+            "path".into(),
+            bbox,
+            0.9,
+            None,
+        );
         let recording_id = Uuid::new_v4();
-        
+
         sighting.link_to_recording(recording_id, 5000);
-        
+
         assert_eq!(sighting.recording_id(), Some(recording_id));
         assert_eq!(sighting.recording_timestamp_ms(), Some(5000));
     }

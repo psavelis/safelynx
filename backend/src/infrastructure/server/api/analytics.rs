@@ -1,6 +1,5 @@
 //! Analytics API Endpoints
 
-use std::sync::Arc;
 use axum::{
     extract::{Query, State},
     http::StatusCode,
@@ -8,6 +7,7 @@ use axum::{
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 use uuid::Uuid;
 
 use crate::domain::entities::ProfileClassification;
@@ -193,11 +193,7 @@ pub async fn get_heatmap_data(
 ) -> Result<Json<HeatmapData>, StatusCode> {
     let sightings = state
         .sighting_repo
-        .find_in_range(
-            Utc::now() - chrono::Duration::hours(24),
-            Utc::now(),
-            10000,
-        )
+        .find_in_range(Utc::now() - chrono::Duration::hours(24), Utc::now(), 10000)
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
@@ -239,7 +235,9 @@ pub async fn get_timeline(
     State(state): State<Arc<AppState>>,
     Query(query): Query<TimelineQuery>,
 ) -> Result<Json<Vec<TimelineEntry>>, StatusCode> {
-    let start = query.start.unwrap_or_else(|| Utc::now() - chrono::Duration::hours(24));
+    let start = query
+        .start
+        .unwrap_or_else(|| Utc::now() - chrono::Duration::hours(24));
     let end = query.end.unwrap_or_else(Utc::now);
     let limit = query.limit.unwrap_or(50);
 
@@ -335,10 +333,7 @@ pub async fn get_storage_stats(
             .filter(|r| r.camera_id() == camera.id())
             .collect();
 
-        let bytes_used: i64 = cam_recordings
-            .iter()
-            .map(|r| r.file_size_bytes())
-            .sum();
+        let bytes_used: i64 = cam_recordings.iter().map(|r| r.file_size_bytes()).sum();
 
         camera_storage.push(CameraStorage {
             camera_id: camera.id(),

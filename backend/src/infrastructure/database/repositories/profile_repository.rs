@@ -22,12 +22,12 @@ impl PgProfileRepository {
 
     fn row_to_profile(&self, r: ProfileRow) -> Option<Profile> {
         let embedding = FaceEmbedding::from_bytes(&r.embedding)?;
-        
-        let tags: Vec<ProfileTag> = r.tags.0
+
+        let tags: Vec<ProfileTag> = r
+            .tags
+            .0
             .iter()
-            .filter_map(|v| {
-                v.as_str().map(|s| ProfileTag::new(s.to_string()))
-            })
+            .filter_map(|v| v.as_str().map(|s| ProfileTag::new(s.to_string())))
             .collect();
 
         Some(Profile::from_db(
@@ -59,7 +59,7 @@ impl ProfileRepository for PgProfileRepository {
                 is_active, created_at, updated_at
             FROM profiles
             WHERE id = $1
-            "#
+            "#,
         )
         .bind(id)
         .fetch_optional(&self.pool)
@@ -81,7 +81,7 @@ impl ProfileRepository for PgProfileRepository {
             FROM profiles
             WHERE is_active = TRUE
             ORDER BY last_seen_at DESC
-            "#
+            "#,
         )
         .fetch_all(&self.pool)
         .await?;
@@ -105,9 +105,9 @@ impl ProfileRepository for PgProfileRepository {
     }
 
     async fn save(&self, profile: &Profile) -> RepoResult<()> {
-        let tags_json = serde_json::to_value(
-            profile.tags().iter().map(|t| t.value()).collect::<Vec<_>>()
-        ).unwrap_or_default();
+        let tags_json =
+            serde_json::to_value(profile.tags().iter().map(|t| t.value()).collect::<Vec<_>>())
+                .unwrap_or_default();
 
         sqlx::query(
             r#"
@@ -116,7 +116,7 @@ impl ProfileRepository for PgProfileRepository {
                 tags, notes, first_seen_at, last_seen_at, sighting_count,
                 is_active, created_at, updated_at
             ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
-            "#
+            "#,
         )
         .bind(profile.id())
         .bind(profile.name())
@@ -138,9 +138,9 @@ impl ProfileRepository for PgProfileRepository {
     }
 
     async fn update(&self, profile: &Profile) -> RepoResult<()> {
-        let tags_json = serde_json::to_value(
-            profile.tags().iter().map(|t| t.value()).collect::<Vec<_>>()
-        ).unwrap_or_default();
+        let tags_json =
+            serde_json::to_value(profile.tags().iter().map(|t| t.value()).collect::<Vec<_>>())
+                .unwrap_or_default();
 
         let result = sqlx::query(
             r#"
@@ -156,7 +156,7 @@ impl ProfileRepository for PgProfileRepository {
                 is_active = $10,
                 updated_at = $11
             WHERE id = $1
-            "#
+            "#,
         )
         .bind(profile.id())
         .bind(profile.name())
@@ -173,7 +173,10 @@ impl ProfileRepository for PgProfileRepository {
         .await?;
 
         if result.rows_affected() == 0 {
-            return Err(RepositoryError::NotFound(format!("Profile {}", profile.id())));
+            return Err(RepositoryError::NotFound(format!(
+                "Profile {}",
+                profile.id()
+            )));
         }
 
         Ok(())
@@ -193,11 +196,10 @@ impl ProfileRepository for PgProfileRepository {
     }
 
     async fn count(&self) -> RepoResult<i64> {
-        let result: (i64,) = sqlx::query_as(
-            r#"SELECT COUNT(*) FROM profiles WHERE is_active = TRUE"#
-        )
-        .fetch_one(&self.pool)
-        .await?;
+        let result: (i64,) =
+            sqlx::query_as(r#"SELECT COUNT(*) FROM profiles WHERE is_active = TRUE"#)
+                .fetch_one(&self.pool)
+                .await?;
 
         Ok(result.0)
     }

@@ -2,9 +2,9 @@
 //!
 //! Loads configuration from environment variables and config files.
 
-use std::path::PathBuf;
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
+use std::path::PathBuf;
 
 /// Application configuration.
 #[derive(Debug, Clone, Serialize, Deserialize)]

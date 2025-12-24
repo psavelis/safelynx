@@ -1,16 +1,10 @@
 //! Settings API Endpoints
 
-use std::sync::Arc;
-use axum::{
-    extract::State,
-    http::StatusCode,
-    Json,
-};
+use axum::{extract::State, http::StatusCode, Json};
 use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 
-use crate::domain::entities::{
-    DetectionSettings, DisplaySettings, NotificationSettings, Settings,
-};
+use crate::domain::entities::{DetectionSettings, DisplaySettings, NotificationSettings, Settings};
 use crate::infrastructure::server::AppState;
 
 #[derive(Debug, Serialize, Deserialize)]

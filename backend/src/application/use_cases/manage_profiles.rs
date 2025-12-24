@@ -98,7 +98,7 @@ impl ManageProfilesUseCase {
 
         let mut profile = profile;
         profile.deactivate();
-        
+
         self.profile_repo.update(&profile).await?;
         self.face_matcher.remove_from_cache(id).await;
 
@@ -114,9 +114,11 @@ impl ManageProfilesUseCase {
 
         let mut profile = profile;
         profile.reactivate();
-        
+
         self.profile_repo.update(&profile).await?;
-        self.face_matcher.add_to_cache(id, profile.embedding().clone()).await;
+        self.face_matcher
+            .add_to_cache(id, profile.embedding().clone())
+            .await;
 
         Ok(true)
     }
@@ -143,10 +145,10 @@ impl ManageProfilesUseCase {
     /// Gets profile statistics.
     pub async fn get_stats(&self) -> RepoResult<ProfileStats> {
         let profiles = self.profile_repo.find_all_active().await?;
-        
+
         let mut stats = ProfileStats::default();
         stats.total = profiles.len() as i64;
-        
+
         for profile in profiles {
             match profile.classification() {
                 ProfileClassification::Trusted => stats.trusted += 1,
@@ -155,9 +157,9 @@ impl ManageProfilesUseCase {
                 ProfileClassification::Flagged => stats.flagged += 1,
             }
         }
-        
+
         stats.total_sightings = self.sighting_repo.count().await?;
-        
+
         Ok(stats)
     }
 }

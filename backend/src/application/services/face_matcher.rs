@@ -42,11 +42,11 @@ impl FaceMatcher {
         let profiles = self.profile_repo.find_all_active().await?;
         let mut cache = self.embedding_cache.write().await;
         cache.clear();
-        
+
         for profile in profiles {
             cache.push((profile.id(), profile.embedding().clone()));
         }
-        
+
         tracing::info!("Loaded {} profile embeddings into cache", cache.len());
         Ok(())
     }
@@ -78,12 +78,12 @@ impl FaceMatcher {
     pub async fn find_match(&self, embedding: &FaceEmbedding) -> Option<MatchResult> {
         let cache = self.embedding_cache.read().await;
         let threshold = *self.threshold.read().await;
-        
+
         let mut best_match: Option<(Uuid, f32)> = None;
-        
+
         for (profile_id, stored_embedding) in cache.iter() {
             let distance = embedding.distance(stored_embedding);
-            
+
             if distance < threshold {
                 match &best_match {
                     None => best_match = Some((*profile_id, distance)),
@@ -94,7 +94,7 @@ impl FaceMatcher {
                 }
             }
         }
-        
+
         best_match.map(|(profile_id, distance)| {
             let confidence = Self::distance_to_confidence(distance, threshold);
             MatchResult {
@@ -109,7 +109,7 @@ impl FaceMatcher {
     pub async fn find_all_matches(&self, embedding: &FaceEmbedding) -> Vec<MatchResult> {
         let cache = self.embedding_cache.read().await;
         let threshold = *self.threshold.read().await;
-        
+
         let mut matches: Vec<_> = cache
             .iter()
             .map(|(profile_id, stored_embedding)| {
@@ -118,9 +118,9 @@ impl FaceMatcher {
             })
             .filter(|(_, distance)| *distance < threshold)
             .collect();
-        
+
         matches.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal));
-        
+
         matches
             .into_iter()
             .map(|(profile_id, distance)| {
@@ -151,8 +151,8 @@ mod tests {
     use super::*;
     use crate::domain::entities::Profile;
     use crate::domain::value_objects::EMBEDDING_DIMENSION;
-    use std::sync::Arc;
     use async_trait::async_trait;
+    use std::sync::Arc;
 
     struct MockProfileRepo;
 
@@ -164,7 +164,11 @@ mod tests {
         async fn find_all_active(&self) -> RepoResult<Vec<Profile>> {
             Ok(vec![])
         }
-        async fn find_by_embedding(&self, _: &FaceEmbedding, _: f32) -> RepoResult<Vec<(Profile, f32)>> {
+        async fn find_by_embedding(
+            &self,
+            _: &FaceEmbedding,
+            _: f32,
+        ) -> RepoResult<Vec<(Profile, f32)>> {
             Ok(vec![])
         }
         async fn save(&self, _: &Profile) -> RepoResult<()> {
@@ -196,13 +200,15 @@ mod tests {
     #[tokio::test]
     async fn find_match_returns_best_match_within_threshold() {
         let matcher = FaceMatcher::new(Arc::new(MockProfileRepo), 0.6);
-        
+
         let profile_id = Uuid::new_v4();
-        matcher.add_to_cache(profile_id, create_embedding(0.5)).await;
-        
+        matcher
+            .add_to_cache(profile_id, create_embedding(0.5))
+            .await;
+
         let query = create_embedding(0.5);
         let result = matcher.find_match(&query).await;
-        
+
         assert!(result.is_some());
         assert_eq!(result.unwrap().profile_id, profile_id);
     }
@@ -210,12 +216,14 @@ mod tests {
     #[tokio::test]
     async fn find_match_returns_none_when_outside_threshold() {
         let matcher = FaceMatcher::new(Arc::new(MockProfileRepo), 0.1);
-        
-        matcher.add_to_cache(Uuid::new_v4(), create_embedding(0.0)).await;
-        
+
+        matcher
+            .add_to_cache(Uuid::new_v4(), create_embedding(0.0))
+            .await;
+
         let query = create_embedding(1.0);
         let result = matcher.find_match(&query).await;
-        
+
         assert!(result.is_none());
     }
 
@@ -223,10 +231,12 @@ mod tests {
     async fn remove_from_cache_removes_profile() {
         let matcher = FaceMatcher::new(Arc::new(MockProfileRepo), 0.6);
         let profile_id = Uuid::new_v4();
-        
-        matcher.add_to_cache(profile_id, create_embedding(0.5)).await;
+
+        matcher
+            .add_to_cache(profile_id, create_embedding(0.5))
+            .await;
         assert_eq!(matcher.cache_size().await, 1);
-        
+
         matcher.remove_from_cache(profile_id).await;
         assert_eq!(matcher.cache_size().await, 0);
     }

@@ -2,12 +2,14 @@
 //!
 //! Provides analytical queries for dashboards and heatmaps.
 
-use std::sync::Arc;
 use chrono::{DateTime, Utc};
+use std::sync::Arc;
 use uuid::Uuid;
 
 use crate::domain::entities::Sighting;
-use crate::domain::repositories::{ProfileRepository, RepoResult, SightingRepository, RecordingRepository};
+use crate::domain::repositories::{
+    ProfileRepository, RecordingRepository, RepoResult, SightingRepository,
+};
 
 /// Time range filter for queries.
 #[derive(Debug, Clone)]
@@ -34,7 +36,9 @@ impl TimeRange {
     /// Creates a range for today.
     pub fn today() -> Self {
         let end = Utc::now();
-        let start = end.date_naive().and_hms_opt(0, 0, 0)
+        let start = end
+            .date_naive()
+            .and_hms_opt(0, 0, 0)
             .map(|t| DateTime::from_naive_utc_and_offset(t, Utc))
             .unwrap_or(end);
         Self { start, end }
@@ -100,13 +104,13 @@ impl QueryAnalyticsUseCase {
         let total_profiles = self.profile_repo.count().await?;
         let total_sightings = self.sighting_repo.count().await?;
         let storage_used_bytes = self.recording_repo.total_storage_bytes().await?;
-        
+
         Ok(DashboardStats {
             total_profiles,
             total_sightings,
-            sightings_today: 0, // TODO: implement
+            sightings_today: 0,       // TODO: implement
             unique_profiles_today: 0, // TODO: implement
-            active_cameras: 0, // TODO: implement
+            active_cameras: 0,        // TODO: implement
             storage_used_bytes,
             storage_max_bytes: 100 * 1024 * 1024 * 1024,
             recording_hours: 0.0, // TODO: implement
@@ -116,9 +120,9 @@ impl QueryAnalyticsUseCase {
     /// Gets heatmap data for profile sightings.
     pub async fn get_heatmap(&self) -> RepoResult<Vec<HeatmapPoint>> {
         let raw_data = self.sighting_repo.get_location_heatmap().await?;
-        
+
         let max_count = raw_data.iter().map(|(_, _, c)| *c).max().unwrap_or(1);
-        
+
         let points = raw_data
             .into_iter()
             .map(|(lat, lon, count)| HeatmapPoint {
@@ -128,7 +132,7 @@ impl QueryAnalyticsUseCase {
                 intensity: count as f64 / max_count as f64,
             })
             .collect();
-        
+
         Ok(points)
     }
 
@@ -155,15 +159,15 @@ impl QueryAnalyticsUseCase {
     /// Gets profiles sorted by sighting count.
     pub async fn get_most_seen_profiles(&self, limit: usize) -> RepoResult<Vec<(Uuid, i64)>> {
         let profiles = self.profile_repo.find_all_active().await?;
-        
+
         let mut profile_counts: Vec<_> = profiles
             .into_iter()
             .map(|p| (p.id(), p.sighting_count()))
             .collect();
-        
+
         profile_counts.sort_by(|a, b| b.1.cmp(&a.1));
         profile_counts.truncate(limit);
-        
+
         Ok(profile_counts)
     }
 

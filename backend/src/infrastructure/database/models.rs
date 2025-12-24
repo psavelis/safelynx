@@ -6,7 +6,7 @@ use chrono::{DateTime, Utc};
 use sqlx::FromRow;
 use uuid::Uuid;
 
-use crate::domain::entities::{ProfileClassification, CameraStatus, CameraType, RecordingStatus};
+use crate::domain::entities::{CameraStatus, CameraType, ProfileClassification, RecordingStatus};
 
 /// Profile database row.
 #[derive(Debug, FromRow)]

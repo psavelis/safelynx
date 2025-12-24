@@ -4,7 +4,7 @@ use async_trait::async_trait;
 use sqlx::PgPool;
 use uuid::Uuid;
 
-use crate::domain::entities::{Camera, CameraType, CameraStatus};
+use crate::domain::entities::{Camera, CameraStatus, CameraType};
 use crate::domain::repositories::{CameraRepository, RepoResult, RepositoryError};
 use crate::domain::value_objects::GeoLocation;
 use crate::infrastructure::database::models::CameraRow;

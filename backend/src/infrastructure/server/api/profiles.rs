@@ -1,15 +1,15 @@
 //! Profile API Endpoints
 
-use std::sync::Arc;
 use axum::{
     extract::{Path, Query, State},
     http::StatusCode,
     Json,
 };
 use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 use uuid::Uuid;
 
-use crate::application::use_cases::{UpdateProfileRequest, ProfileStats};
+use crate::application::use_cases::{ProfileStats, UpdateProfileRequest};
 use crate::domain::entities::{Profile, ProfileClassification, Sighting};
 use crate::infrastructure::server::AppState;
 
@@ -35,7 +35,9 @@ impl From<Profile> for ProfileResponse {
             name: p.name().map(String::from),
             display_name: p.display_name(),
             classification: p.classification(),
-            thumbnail_url: p.thumbnail_path().map(|p| format!("/files/snapshots/{}", p)),
+            thumbnail_url: p
+                .thumbnail_path()
+                .map(|p| format!("/files/snapshots/{}", p)),
             tags: p.tags().iter().map(|t| t.value().to_string()).collect(),
             notes: p.notes().map(String::from),
             first_seen_at: p.first_seen_at().to_rfc3339(),
@@ -180,7 +182,7 @@ pub async fn get_profile_sightings(
     Query(query): Query<SightingsQuery>,
 ) -> Result<Json<Vec<SightingResponse>>, StatusCode> {
     let limit = query.limit.unwrap_or(100);
-    
+
     let sightings = state
         .sighting_repo
         .find_by_profile(id, limit)

@@ -55,7 +55,7 @@ impl SightingRepository for PgSightingRepository {
                 recording_id, recording_timestamp_ms, detected_at
             FROM sightings
             WHERE id = $1
-            "#
+            "#,
         )
         .bind(id)
         .fetch_optional(&self.pool)
@@ -76,7 +76,7 @@ impl SightingRepository for PgSightingRepository {
             WHERE profile_id = $1
             ORDER BY detected_at DESC
             LIMIT $2
-            "#
+            "#,
         )
         .bind(profile_id)
         .bind(limit)
@@ -103,7 +103,7 @@ impl SightingRepository for PgSightingRepository {
             WHERE detected_at BETWEEN $1 AND $2
             ORDER BY detected_at DESC
             LIMIT $3
-            "#
+            "#,
         )
         .bind(start)
         .bind(end)
@@ -129,7 +129,7 @@ impl SightingRepository for PgSightingRepository {
                 confidence, location_lat, location_lon,
                 recording_id, recording_timestamp_ms, detected_at
             ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
-            "#
+            "#,
         )
         .bind(sighting.id())
         .bind(sighting.profile_id())
@@ -163,7 +163,7 @@ impl SightingRepository for PgSightingRepository {
             GROUP BY ROUND(location_lat::numeric, 4), ROUND(location_lon::numeric, 4)
             ORDER BY 3 DESC
             LIMIT 1000
-            "#
+            "#,
         )
         .fetch_all(&self.pool)
         .await?;
@@ -180,12 +180,11 @@ impl SightingRepository for PgSightingRepository {
     }
 
     async fn count_by_profile(&self, profile_id: Uuid) -> RepoResult<i64> {
-        let result: (i64,) = sqlx::query_as(
-            r#"SELECT COUNT(*) FROM sightings WHERE profile_id = $1"#
-        )
-        .bind(profile_id)
-        .fetch_one(&self.pool)
-        .await?;
+        let result: (i64,) =
+            sqlx::query_as(r#"SELECT COUNT(*) FROM sightings WHERE profile_id = $1"#)
+                .bind(profile_id)
+                .fetch_one(&self.pool)
+                .await?;
 
         Ok(result.0)
     }

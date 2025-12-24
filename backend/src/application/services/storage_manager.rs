@@ -28,7 +28,7 @@ impl Default for StorageConfig {
         let base_dir = dirs::document_dir()
             .unwrap_or_else(|| PathBuf::from("."))
             .join("Safelynx");
-        
+
         Self {
             max_storage_bytes: 100 * 1024 * 1024 * 1024, // 100GB
             auto_cleanup: true,
@@ -75,7 +75,7 @@ impl StorageManager {
         let recordings_bytes = self.recording_repo.total_storage_bytes().await?;
         let snapshots_bytes = self.calculate_snapshots_size(&config.base_dir).await;
         let total_bytes = recordings_bytes + snapshots_bytes;
-        
+
         Ok(StorageStats {
             total_bytes,
             recordings_bytes,
@@ -89,24 +89,27 @@ impl StorageManager {
     /// Checks if storage limit is exceeded and performs cleanup if needed.
     pub async fn check_and_cleanup(&self) -> RepoResult<bool> {
         let config = self.config.read().await.clone();
-        
+
         if !config.auto_cleanup {
             return Ok(false);
         }
-        
+
         let stats = self.stats().await?;
-        
+
         if stats.total_bytes <= config.max_storage_bytes {
             return Ok(false);
         }
-        
-        info!("Storage limit exceeded ({:.1}%), starting cleanup", stats.usage_percent);
-        
+
+        info!(
+            "Storage limit exceeded ({:.1}%), starting cleanup",
+            stats.usage_percent
+        );
+
         let target_bytes = (config.max_storage_bytes as f64 * config.cleanup_target_percent) as i64;
         let bytes_to_free = stats.total_bytes - target_bytes;
-        
+
         self.cleanup_recordings(bytes_to_free).await?;
-        
+
         Ok(true)
     }
 
@@ -114,32 +117,36 @@ impl StorageManager {
     async fn cleanup_recordings(&self, bytes_to_free: i64) -> RepoResult<()> {
         let mut freed = 0i64;
         let mut batch_size = 10;
-        
+
         while freed < bytes_to_free {
             let oldest = self.recording_repo.find_oldest(batch_size).await?;
-            
+
             if oldest.is_empty() {
                 warn!("No more recordings to delete, freed {} bytes", freed);
                 break;
             }
-            
+
             for recording in oldest {
                 if freed >= bytes_to_free {
                     break;
                 }
-                
+
                 freed += recording.file_size_bytes();
                 self.delete_recording_files(&recording).await;
                 self.recording_repo.delete(recording.id()).await?;
-                
-                info!("Deleted recording {} ({} bytes)", recording.id(), recording.file_size_bytes());
+
+                info!(
+                    "Deleted recording {} ({} bytes)",
+                    recording.id(),
+                    recording.file_size_bytes()
+                );
             }
-            
+
             batch_size = 50;
         }
-        
+
         info!("Cleanup complete, freed {} bytes", freed);
-        
+
         Ok(())
     }
 
@@ -156,13 +163,13 @@ impl StorageManager {
     /// Calculates total size of snapshots directory.
     async fn calculate_snapshots_size(&self, base_dir: &PathBuf) -> i64 {
         let snapshots_dir = base_dir.join("snapshots");
-        
+
         if !snapshots_dir.exists() {
             return 0;
         }
-        
+
         let mut total = 0i64;
-        
+
         if let Ok(mut entries) = tokio::fs::read_dir(&snapshots_dir).await {
             while let Ok(Some(entry)) = entries.next_entry().await {
                 if let Ok(metadata) = entry.metadata().await {
@@ -170,7 +177,7 @@ impl StorageManager {
                 }
             }
         }
-        
+
         total
     }
 
@@ -187,11 +194,11 @@ impl StorageManager {
     /// Ensures all required directories exist.
     pub async fn ensure_directories(&self) -> std::io::Result<()> {
         let config = self.config.read().await;
-        
+
         tokio::fs::create_dir_all(config.base_dir.join("recordings")).await?;
         tokio::fs::create_dir_all(config.base_dir.join("snapshots")).await?;
         tokio::fs::create_dir_all(config.base_dir.join("logs")).await?;
-        
+
         Ok(())
     }
 }
@@ -228,7 +235,7 @@ mod tests {
             usage_percent: 50.0,
             recording_count: 100,
         };
-        
+
         assert!((stats.usage_percent - 50.0).abs() < f64::EPSILON);
     }
 }

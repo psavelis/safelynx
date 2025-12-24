@@ -3,10 +3,10 @@
 //! Video capture from various camera sources using nokhwa (AVFoundation on macOS).
 //! Reference: https://docs.rs/nokhwa/latest/nokhwa/
 
-use std::sync::Arc;
 use nokhwa::pixel_format::RgbFormat;
 use nokhwa::utils::{CameraIndex, RequestedFormat, RequestedFormatType};
 use nokhwa::Camera;
+use std::sync::Arc;
 use tokio::sync::{broadcast, RwLock};
 use tracing::{debug, error, info, warn};
 use uuid::Uuid;
@@ -92,8 +92,10 @@ impl CameraCapture {
         *state = CaptureState::Starting;
         drop(state);
 
-        info!("Starting camera capture for {} with device index {}", 
-              self.camera_id, self.config.device_index);
+        info!(
+            "Starting camera capture for {} with device index {}",
+            self.camera_id, self.config.device_index
+        );
 
         // Start capture in background task (blocking camera access needs spawn_blocking)
         let camera_id = self.camera_id;
@@ -103,7 +105,9 @@ impl CameraCapture {
         let frame_count = self.frame_count.clone();
 
         tokio::spawn(async move {
-            match Self::capture_loop(camera_id, config, state.clone(), frame_sender, frame_count).await {
+            match Self::capture_loop(camera_id, config, state.clone(), frame_sender, frame_count)
+                .await
+            {
                 Ok(_) => info!("Camera capture stopped for {}", camera_id),
                 Err(e) => {
                     error!("Camera capture error for {}: {}", camera_id, e);
@@ -128,30 +132,37 @@ impl CameraCapture {
         frame_sender: broadcast::Sender<CapturedFrame>,
         frame_count: Arc<RwLock<u64>>,
     ) -> anyhow::Result<()> {
-        info!("Initializing camera {} with nokhwa (AVFoundation)", camera_id);
-        
+        info!(
+            "Initializing camera {} with nokhwa (AVFoundation)",
+            camera_id
+        );
+
         // Camera initialization must happen in a blocking context
         let device_index = config.device_index;
         let init_result = tokio::task::spawn_blocking(move || {
             let index = CameraIndex::Index(device_index);
-            let requested = RequestedFormat::new::<RgbFormat>(
-                RequestedFormatType::AbsoluteHighestResolution,
-            );
-            
+            let requested =
+                RequestedFormat::new::<RgbFormat>(RequestedFormatType::AbsoluteHighestResolution);
+
             info!("Opening camera at index {}...", device_index);
             let mut cam = Camera::new(index, requested)?;
-            
+
             // Get actual resolution
             let resolution = cam.resolution();
-            info!("Camera resolution: {}x{}", resolution.width(), resolution.height());
-            
+            info!(
+                "Camera resolution: {}x{}",
+                resolution.width(),
+                resolution.height()
+            );
+
             // Open the camera stream - this triggers macOS permission dialog
             info!("Opening camera stream - macOS should prompt for camera access now...");
             cam.open_stream()?;
-            
+
             info!("Camera stream opened successfully!");
             Ok::<_, nokhwa::NokhwaError>((cam, resolution.width(), resolution.height()))
-        }).await?;
+        })
+        .await?;
 
         let (camera, actual_width, actual_height) = match init_result {
             Ok(result) => result,
@@ -163,11 +174,14 @@ impl CameraCapture {
         };
 
         *state.write().await = CaptureState::Running;
-        info!("Camera capture running - resolution: {}x{}", actual_width, actual_height);
+        info!(
+            "Camera capture running - resolution: {}x{}",
+            actual_width, actual_height
+        );
 
         // Wrap camera in Arc<Mutex> for safe access across blocking tasks
         let camera = Arc::new(std::sync::Mutex::new(camera));
-        
+
         let frame_interval = std::time::Duration::from_millis(1000 / config.fps as u64);
         let mut interval = tokio::time::interval(frame_interval);
 
@@ -184,7 +198,8 @@ impl CameraCapture {
             let frame_result = tokio::task::spawn_blocking(move || {
                 let mut cam = camera_clone.lock().unwrap();
                 cam.frame()
-            }).await;
+            })
+            .await;
 
             match frame_result {
                 Ok(Ok(buffer)) => {
@@ -203,8 +218,13 @@ impl CameraCapture {
                     };
 
                     if frame_num % 30 == 0 {
-                        debug!("Captured frame {} ({}x{}, {} bytes)", 
-                               frame_num, actual_width, actual_height, frame.data.len());
+                        debug!(
+                            "Captured frame {} ({}x{}, {} bytes)",
+                            frame_num,
+                            actual_width,
+                            actual_height,
+                            frame.data.len()
+                        );
                     }
 
                     if frame_sender.send(frame).is_err() {
@@ -243,7 +263,12 @@ pub fn list_cameras() -> Vec<CameraInfo> {
                 .into_iter()
                 .enumerate()
                 .map(|(idx, info)| {
-                    info!("Camera {}: {} - {}", idx, info.human_name(), info.description());
+                    info!(
+                        "Camera {}: {} - {}",
+                        idx,
+                        info.human_name(),
+                        info.description()
+                    );
                     CameraInfo {
                         index: idx as u32,
                         name: info.human_name().to_string(),

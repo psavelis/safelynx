@@ -1,12 +1,12 @@
 //! Camera API Endpoints
 
-use std::sync::Arc;
 use axum::{
     extract::{Path, State},
     http::StatusCode,
     Json,
 };
 use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 use uuid::Uuid;
 
 use crate::application::use_cases::{CreateCameraRequest, UpdateCameraRequest};
@@ -60,7 +60,10 @@ impl From<Camera> for CameraResponse {
             status: c.status(),
             resolution: {
                 let (w, h) = c.resolution();
-                ResolutionResponse { width: w, height: h }
+                ResolutionResponse {
+                    width: w,
+                    height: h,
+                }
             },
             fps: c.fps(),
             is_enabled: c.is_enabled(),
@@ -133,9 +136,9 @@ pub async fn create_camera(
         camera_type: body.camera_type,
         device_id: body.device_id,
         rtsp_url: body.rtsp_url,
-        location: body.location.map(|l| {
-            GeoLocation::with_metadata(l.latitude, l.longitude, None, None, l.name)
-        }),
+        location: body
+            .location
+            .map(|l| GeoLocation::with_metadata(l.latitude, l.longitude, None, None, l.name)),
     };
 
     let camera = state
@@ -170,9 +173,9 @@ pub async fn update_camera(
 ) -> Result<Json<CameraResponse>, StatusCode> {
     let request = UpdateCameraRequest {
         name: body.name,
-        location: body.location.map(|l| {
-            GeoLocation::with_metadata(l.latitude, l.longitude, None, None, l.name)
-        }),
+        location: body
+            .location
+            .map(|l| GeoLocation::with_metadata(l.latitude, l.longitude, None, None, l.name)),
         resolution: body.resolution.map(|r| (r.width, r.height)),
         fps: body.fps,
         enabled: body.enabled,
@@ -237,7 +240,7 @@ pub async fn stop_stream(
 /// GET /api/v1/cameras/available
 pub async fn list_available_cameras() -> Json<Vec<AvailableCameraResponse>> {
     let cameras = list_system_cameras();
-    
+
     let responses: Vec<AvailableCameraResponse> = cameras
         .into_iter()
         .map(|c| AvailableCameraResponse {

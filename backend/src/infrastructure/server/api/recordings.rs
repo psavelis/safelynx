@@ -1,12 +1,12 @@
 //! Recordings API Endpoints
 
-use std::sync::Arc;
 use axum::{
     extract::{Path, Query, State},
     http::StatusCode,
     Json,
 };
 use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 use uuid::Uuid;
 
 use crate::domain::entities::{Recording, RecordingStatus};
@@ -33,7 +33,10 @@ impl From<Recording> for RecordingResponse {
         Self {
             id: r.id(),
             camera_id: r.camera_id(),
-            file_url: format!("/files/recordings/{}", r.file_path().split('/').last().unwrap_or("")),
+            file_url: format!(
+                "/files/recordings/{}",
+                r.file_path().split('/').last().unwrap_or("")
+            ),
             file_size_bytes: r.file_size_bytes(),
             file_size_human: format_bytes(r.file_size_bytes()),
             duration_ms: r.duration_ms(),
@@ -90,7 +93,7 @@ pub async fn list_recordings(
     Query(query): Query<RecordingsQuery>,
 ) -> Result<Json<Vec<RecordingResponse>>, StatusCode> {
     let limit = query.limit.unwrap_or(50);
-    
+
     let recordings = if let Some(camera_id) = query.camera_id {
         state
             .recording_repo
@@ -159,7 +162,7 @@ pub async fn play_recording(
         .ok_or(StatusCode::NOT_FOUND)?;
 
     let filename = recording.file_path().split('/').last().unwrap_or("");
-    
+
     Ok(Json(PlaybackResponse {
         id: recording.id(),
         url: format!("/files/recordings/{}", filename),

@@ -37,7 +37,11 @@ pub trait ProfileRepository: Send + Sync {
     async fn find_all_active(&self) -> RepoResult<Vec<Profile>>;
 
     /// Finds profiles matching an embedding within the threshold.
-    async fn find_by_embedding(&self, embedding: &FaceEmbedding, threshold: f32) -> RepoResult<Vec<(Profile, f32)>>;
+    async fn find_by_embedding(
+        &self,
+        embedding: &FaceEmbedding,
+        threshold: f32,
+    ) -> RepoResult<Vec<(Profile, f32)>>;
 
     /// Saves a new profile.
     async fn save(&self, profile: &Profile) -> RepoResult<()>;

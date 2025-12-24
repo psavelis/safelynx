@@ -2,7 +2,6 @@
 //!
 //! Real-time event streaming for face detection events.
 
-use std::sync::Arc;
 use axum::{
     extract::{
         ws::{Message, WebSocket, WebSocketUpgrade},
@@ -10,11 +9,12 @@ use axum::{
     },
     response::Response,
 };
+use chrono::{DateTime, Utc};
 use futures_util::{SinkExt, StreamExt};
 use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 use tokio::sync::broadcast;
 use uuid::Uuid;
-use chrono::{DateTime, Utc};
 
 use crate::domain::events::DomainEvent;
 use crate::infrastructure::server::AppState;
@@ -190,10 +190,7 @@ impl WsBroadcaster {
 }
 
 /// WebSocket upgrade handler
-pub async fn ws_handler(
-    ws: WebSocketUpgrade,
-    State(state): State<Arc<AppState>>,
-) -> Response {
+pub async fn ws_handler(ws: WebSocketUpgrade, State(state): State<Arc<AppState>>) -> Response {
     ws.on_upgrade(move |socket| handle_socket(socket, state))
 }
 

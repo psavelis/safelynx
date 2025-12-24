@@ -2,8 +2,8 @@
 //!
 //! Orchestrates face detection, embedding extraction, and profile matching.
 
-use std::sync::Arc;
 use chrono::Utc;
+use std::sync::Arc;
 use tokio::sync::RwLock;
 use tracing::{debug, info};
 use uuid::Uuid;
@@ -53,23 +53,22 @@ impl SightingTracker {
 
     fn should_record(&mut self, profile_id: Uuid) -> bool {
         let now = Utc::now();
-        
+
         if let Some(last_seen) = self.recent.get(&profile_id) {
             let elapsed = (now - *last_seen).num_seconds();
             if elapsed < self.cooldown_secs {
                 return false;
             }
         }
-        
+
         self.recent.insert(profile_id, now);
         true
     }
 
     fn cleanup(&mut self) {
         let now = Utc::now();
-        self.recent.retain(|_, last_seen| {
-            (now - *last_seen).num_seconds() < self.cooldown_secs * 2
-        });
+        self.recent
+            .retain(|_, last_seen| (now - *last_seen).num_seconds() < self.cooldown_secs * 2);
     }
 }
 
@@ -134,8 +133,17 @@ impl DetectionService {
 
         // First pass: collect processing results for each detection
         let detection_count = frame.detections().len();
-        let mut results: Vec<Option<(Uuid, Option<String>, crate::domain::entities::ProfileClassification, bool, f32, BoundingBox, f32)>> = 
-            Vec::with_capacity(detection_count);
+        let mut results: Vec<
+            Option<(
+                Uuid,
+                Option<String>,
+                crate::domain::entities::ProfileClassification,
+                bool,
+                f32,
+                BoundingBox,
+                f32,
+            )>,
+        > = Vec::with_capacity(detection_count);
 
         for detection in frame.detections() {
             if detection.confidence() < config.min_confidence {
@@ -156,37 +164,57 @@ impl DetectionService {
 
             let result = match self.face_matcher.find_match(&embedding).await {
                 Some(match_result) => {
-                    let profile = self.profile_repo
+                    let profile = self
+                        .profile_repo
                         .find_by_id(match_result.profile_id)
                         .await?;
-                    
+
                     match profile {
-                        Some(p) => Some((p.id(), p.name().map(String::from), p.classification(), false, match_result.distance, bbox, confidence)),
+                        Some(p) => Some((
+                            p.id(),
+                            p.name().map(String::from),
+                            p.classification(),
+                            false,
+                            match_result.distance,
+                            bbox,
+                            confidence,
+                        )),
                         None => None,
                     }
                 }
                 None => {
-                    let profile = self.create_profile_from_detection(
-                        embedding.clone(),
-                        &bbox,
-                        camera_id,
-                        frame_number,
-                        frame_data.as_deref(),
-                        snapshot_dir,
-                    ).await?;
-                    
+                    let profile = self
+                        .create_profile_from_detection(
+                            embedding.clone(),
+                            &bbox,
+                            camera_id,
+                            frame_number,
+                            frame_data.as_deref(),
+                            snapshot_dir,
+                        )
+                        .await?;
+
                     let profile_id = profile.id();
                     created_profiles.push(profile_id);
-                    
-                    self.event_bus.publish(DomainEvent::ProfileCreated(ProfileCreatedEvent {
+
+                    self.event_bus
+                        .publish(DomainEvent::ProfileCreated(ProfileCreatedEvent {
+                            profile_id,
+                            thumbnail_path: profile.thumbnail_path().map(String::from),
+                            camera_id,
+                            location: location.clone(),
+                            timestamp: Utc::now(),
+                        }));
+
+                    Some((
                         profile_id,
-                        thumbnail_path: profile.thumbnail_path().map(String::from),
-                        camera_id,
-                        location: location.clone(),
-                        timestamp: Utc::now(),
-                    }));
-                    
-                    Some((profile_id, None, profile.classification(), true, 0.0, bbox, confidence))
+                        None,
+                        profile.classification(),
+                        true,
+                        0.0,
+                        bbox,
+                        confidence,
+                    ))
                 }
             };
             results.push(result);
@@ -194,21 +222,31 @@ impl DetectionService {
 
         // Second pass: update detections and process sightings
         for (i, detection) in frame.detections_mut().iter_mut().enumerate() {
-            if let Some(Some((profile_id, profile_name, classification, is_new, distance, ref bbox, confidence))) = results.get(i) {
+            if let Some(Some((
+                profile_id,
+                profile_name,
+                classification,
+                is_new,
+                distance,
+                ref bbox,
+                confidence,
+            ))) = results.get(i)
+            {
                 if !*is_new {
                     detection.set_match(*profile_id, *distance);
                 }
 
-                self.event_bus.publish(DomainEvent::FaceDetected(FaceDetectedEvent {
-                    camera_id,
-                    frame_number,
-                    bounding_box: bbox.clone(),
-                    confidence: *confidence,
-                    profile_id: Some(*profile_id),
-                    profile_name: profile_name.clone(),
-                    classification: Some(*classification),
-                    timestamp: Utc::now(),
-                }));
+                self.event_bus
+                    .publish(DomainEvent::FaceDetected(FaceDetectedEvent {
+                        camera_id,
+                        frame_number,
+                        bounding_box: bbox.clone(),
+                        confidence: *confidence,
+                        profile_id: Some(*profile_id),
+                        profile_name: profile_name.clone(),
+                        classification: Some(*classification),
+                        timestamp: Utc::now(),
+                    }));
 
                 if !*is_new {
                     self.record_sighting_data(
@@ -221,13 +259,14 @@ impl DetectionService {
                         frame_data.as_deref(),
                         snapshot_dir,
                         location.clone(),
-                    ).await?;
+                    )
+                    .await?;
                 }
             }
         }
 
         self.cleanup_tracker().await;
-        
+
         Ok(created_profiles)
     }
 
@@ -240,14 +279,22 @@ impl DetectionService {
         image_data: Option<&[u8]>,
         snapshot_dir: &str,
     ) -> RepoResult<Profile> {
-        let thumbnail_path = self.save_thumbnail_from_data(image_data, bbox, snapshot_dir).await;
+        let thumbnail_path = self
+            .save_thumbnail_from_data(image_data, bbox, snapshot_dir)
+            .await;
         let profile = Profile::new(embedding.clone(), thumbnail_path);
-        
+
         self.profile_repo.save(&profile).await?;
-        self.face_matcher.add_to_cache(profile.id(), embedding).await;
-        
-        info!("Created new profile: {} from camera {}", profile.id(), camera_id);
-        
+        self.face_matcher
+            .add_to_cache(profile.id(), embedding)
+            .await;
+
+        info!(
+            "Created new profile: {} from camera {}",
+            profile.id(),
+            camera_id
+        );
+
         Ok(profile)
     }
 
@@ -270,7 +317,9 @@ impl DetectionService {
         }
         drop(tracker);
 
-        let snapshot_path = self.save_snapshot_from_data(image_data, snapshot_dir).await
+        let snapshot_path = self
+            .save_snapshot_from_data(image_data, snapshot_dir)
+            .await
             .unwrap_or_else(|| "unknown".to_string());
 
         let sighting = Sighting::new(
@@ -289,16 +338,17 @@ impl DetectionService {
             self.profile_repo.update(&profile).await?;
         }
 
-        self.event_bus.publish(DomainEvent::ProfileSighted(ProfileSightedEvent {
-            sighting_id: sighting.id(),
-            profile_id,
-            profile_name,
-            classification,
-            camera_id,
-            location,
-            confidence,
-            timestamp: Utc::now(),
-        }));
+        self.event_bus
+            .publish(DomainEvent::ProfileSighted(ProfileSightedEvent {
+                sighting_id: sighting.id(),
+                profile_id,
+                profile_name,
+                classification,
+                camera_id,
+                location,
+                confidence,
+                timestamp: Utc::now(),
+            }));
 
         Ok(())
     }
@@ -336,7 +386,7 @@ mod tests {
     fn sighting_tracker_respects_cooldown() {
         let mut tracker = SightingTracker::new(30);
         let profile_id = Uuid::new_v4();
-        
+
         assert!(tracker.should_record(profile_id));
         assert!(!tracker.should_record(profile_id));
     }

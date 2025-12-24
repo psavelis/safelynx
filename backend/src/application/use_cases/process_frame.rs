@@ -39,21 +39,22 @@ impl ProcessFrameUseCase {
     pub async fn execute(&self, frame: &mut FrameDetections) -> RepoResult<ProcessFrameResult> {
         let snapshot_dir = self.storage_manager.snapshots_dir().await;
         let snapshot_dir_str = snapshot_dir.to_string_lossy().to_string();
-        
-        let created_profiles = self.detection_service
+
+        let created_profiles = self
+            .detection_service
             .process_frame(frame, &snapshot_dir_str)
             .await?;
-        
+
         let camera_id = frame.camera_id();
-        
+
         if frame.has_faces() {
             self.recording_service.on_detection(camera_id).await?;
         }
-        
+
         let recording_stopped = self.recording_service.check_timeout(camera_id).await?;
-        
+
         let cleanup_performed = self.storage_manager.check_and_cleanup().await?;
-        
+
         Ok(ProcessFrameResult {
             created_profiles,
             face_count: frame.face_count(),

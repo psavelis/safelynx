@@ -47,7 +47,7 @@ impl RecordingRepository for PgRecordingRepository {
                 has_detections, started_at, ended_at, created_at
             FROM recordings
             WHERE id = $1
-            "#
+            "#,
         )
         .bind(id)
         .fetch_optional(&self.pool)
@@ -66,7 +66,7 @@ impl RecordingRepository for PgRecordingRepository {
             FROM recordings
             ORDER BY started_at DESC
             LIMIT $1
-            "#
+            "#,
         )
         .bind(limit)
         .fetch_all(&self.pool)
@@ -86,7 +86,7 @@ impl RecordingRepository for PgRecordingRepository {
             WHERE camera_id = $1
             ORDER BY started_at DESC
             LIMIT $2
-            "#
+            "#,
         )
         .bind(camera_id)
         .bind(limit)
@@ -107,7 +107,7 @@ impl RecordingRepository for PgRecordingRepository {
             WHERE has_detections = TRUE AND status = 'completed'
             ORDER BY started_at DESC
             LIMIT $1
-            "#
+            "#,
         )
         .bind(limit)
         .fetch_all(&self.pool)
@@ -124,7 +124,7 @@ impl RecordingRepository for PgRecordingRepository {
                 duration_ms, frame_count, status, has_detections,
                 started_at, ended_at, created_at
             ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-            "#
+            "#,
         )
         .bind(recording.id())
         .bind(recording.camera_id())
@@ -154,7 +154,7 @@ impl RecordingRepository for PgRecordingRepository {
                 has_detections = $6,
                 ended_at = $7
             WHERE id = $1
-            "#
+            "#,
         )
         .bind(recording.id())
         .bind(recording.file_size_bytes())
@@ -210,7 +210,7 @@ impl RecordingRepository for PgRecordingRepository {
             WHERE status = 'completed'
             ORDER BY started_at ASC
             LIMIT $1
-            "#
+            "#,
         )
         .bind(limit)
         .fetch_all(&self.pool)

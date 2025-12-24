@@ -2,9 +2,9 @@
 //!
 //! Manages video recording with motion/detection triggering.
 
+use chrono::Utc;
 use std::path::PathBuf;
 use std::sync::Arc;
-use chrono::Utc;
 use tokio::sync::RwLock;
 use tracing::info;
 use uuid::Uuid;
@@ -35,7 +35,7 @@ impl Default for RecordingConfig {
             .unwrap_or_else(|| PathBuf::from("."))
             .join("Safelynx")
             .join("recordings");
-        
+
         Self {
             detection_triggered: true,
             pre_trigger_buffer_secs: 5,
@@ -94,60 +94,72 @@ impl RecordingService {
         let timestamp = Utc::now().format("%Y%m%d_%H%M%S");
         let filename = format!("{}_{}.mp4", camera_id, timestamp);
         let file_path = config.recordings_dir.join(&filename);
-        
+
         std::fs::create_dir_all(&config.recordings_dir).ok();
-        
+
         let recording = Recording::new(camera_id, file_path.to_string_lossy().to_string());
         let recording_id = recording.id();
-        
+
         self.recording_repo.save(&recording).await?;
-        
+
         let session = RecordingSession {
             recording,
             last_detection_at: None,
             frame_count: 0,
             bytes_written: 0,
         };
-        
-        self.active_sessions.write().await.insert(camera_id, session);
-        
-        self.event_bus.publish(DomainEvent::RecordingStarted(RecordingStartedEvent {
-            recording_id,
-            camera_id,
-            timestamp: Utc::now(),
-        }));
-        
-        info!("Started recording {} for camera {}", recording_id, camera_id);
-        
+
+        self.active_sessions
+            .write()
+            .await
+            .insert(camera_id, session);
+
+        self.event_bus
+            .publish(DomainEvent::RecordingStarted(RecordingStartedEvent {
+                recording_id,
+                camera_id,
+                timestamp: Utc::now(),
+            }));
+
+        info!(
+            "Started recording {} for camera {}",
+            recording_id, camera_id
+        );
+
         Ok(recording_id)
     }
 
     /// Stops a recording for a camera.
     pub async fn stop_recording(&self, camera_id: Uuid) -> RepoResult<Option<Recording>> {
         let mut sessions = self.active_sessions.write().await;
-        
+
         let session = match sessions.remove(&camera_id) {
             Some(s) => s,
             None => return Ok(None),
         };
-        
+
         let mut recording = session.recording;
         let duration_ms = (Utc::now() - recording.started_at()).num_milliseconds();
-        
+
         recording.complete(session.bytes_written, duration_ms, session.frame_count);
         self.recording_repo.update(&recording).await?;
-        
-        self.event_bus.publish(DomainEvent::RecordingEnded(RecordingEndedEvent {
-            recording_id: recording.id(),
-            camera_id,
-            duration_ms,
-            file_size_bytes: session.bytes_written,
-            has_detections: recording.has_detections(),
-            timestamp: Utc::now(),
-        }));
-        
-        info!("Stopped recording {} for camera {}", recording.id(), camera_id);
-        
+
+        self.event_bus
+            .publish(DomainEvent::RecordingEnded(RecordingEndedEvent {
+                recording_id: recording.id(),
+                camera_id,
+                duration_ms,
+                file_size_bytes: session.bytes_written,
+                has_detections: recording.has_detections(),
+                timestamp: Utc::now(),
+            }));
+
+        info!(
+            "Stopped recording {} for camera {}",
+            recording.id(),
+            camera_id
+        );
+
         Ok(Some(recording))
     }
 
@@ -155,10 +167,10 @@ impl RecordingService {
     pub async fn on_detection(&self, camera_id: Uuid) -> RepoResult<()> {
         let config = self.config.read().await.clone();
         let mut sessions = self.active_sessions.write().await;
-        
+
         if let Some(session) = sessions.get_mut(&camera_id) {
             session.last_detection_at = Some(Utc::now());
-            
+
             let mut recording = session.recording.clone();
             recording.mark_has_detections();
             session.recording = recording;
@@ -166,14 +178,14 @@ impl RecordingService {
             drop(sessions);
             self.start_recording(camera_id).await?;
         }
-        
+
         Ok(())
     }
 
     /// Updates recording stats for a frame.
     pub async fn update_stats(&self, camera_id: Uuid, bytes: i64) {
         let mut sessions = self.active_sessions.write().await;
-        
+
         if let Some(session) = sessions.get_mut(&camera_id) {
             session.frame_count += 1;
             session.bytes_written += bytes;
@@ -184,7 +196,7 @@ impl RecordingService {
     pub async fn check_timeout(&self, camera_id: Uuid) -> RepoResult<bool> {
         let config = self.config.read().await.clone();
         let sessions = self.active_sessions.read().await;
-        
+
         let should_stop = if let Some(session) = sessions.get(&camera_id) {
             if !config.detection_triggered {
                 let duration = (Utc::now() - session.recording.started_at()).num_seconds();
@@ -198,14 +210,14 @@ impl RecordingService {
         } else {
             false
         };
-        
+
         drop(sessions);
-        
+
         if should_stop {
             self.stop_recording(camera_id).await?;
             return Ok(true);
         }
-        
+
         Ok(false)
     }
 

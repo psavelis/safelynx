@@ -114,7 +114,7 @@ impl ManageCamerasUseCase {
     /// Deletes a camera.
     pub async fn delete_camera(&self, id: Uuid) -> RepoResult<bool> {
         let camera = self.camera_repo.find_by_id(id).await?;
-        
+
         if camera.is_none() {
             return Ok(false);
         }
@@ -154,7 +154,7 @@ impl ManageCamerasUseCase {
     /// Creates or ensures the built-in camera exists.
     pub async fn ensure_builtin_camera(&self) -> RepoResult<Camera> {
         let cameras = self.camera_repo.find_all().await?;
-        
+
         let builtin = cameras
             .into_iter()
             .find(|c| c.camera_type() == CameraType::Builtin);

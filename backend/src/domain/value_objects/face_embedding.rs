@@ -46,10 +46,7 @@ impl FaceEmbedding {
 
     /// Converts the embedding to bytes for storage.
     pub fn to_bytes(&self) -> Vec<u8> {
-        self.values
-            .iter()
-            .flat_map(|v| v.to_le_bytes())
-            .collect()
+        self.values.iter().flat_map(|v| v.to_le_bytes()).collect()
     }
 
     /// Returns the embedding values.
@@ -162,7 +159,12 @@ mod tests {
     fn normalized_embedding_has_unit_length() {
         let e = create_test_embedding(5.0);
         let normalized = e.normalized();
-        let magnitude: f32 = normalized.values().iter().map(|x| x.powi(2)).sum::<f32>().sqrt();
+        let magnitude: f32 = normalized
+            .values()
+            .iter()
+            .map(|x| x.powi(2))
+            .sum::<f32>()
+            .sqrt();
         assert!((magnitude - 1.0).abs() < 0.0001);
     }
 

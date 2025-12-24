@@ -135,7 +135,8 @@ mod tests {
 
     #[test]
     fn display_shows_name_when_present() {
-        let loc = GeoLocation::with_metadata(40.7128, -74.0060, None, None, Some("New York".to_string()));
+        let loc =
+            GeoLocation::with_metadata(40.7128, -74.0060, None, None, Some("New York".to_string()));
         assert_eq!(loc.display(), "New York");
     }
 

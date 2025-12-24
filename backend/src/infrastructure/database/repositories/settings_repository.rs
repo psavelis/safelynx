@@ -21,16 +21,14 @@ impl PgSettingsRepository {
 #[async_trait]
 impl SettingsRepository for PgSettingsRepository {
     async fn get(&self) -> RepoResult<Settings> {
-        let row: Option<(serde_json::Value,)> = sqlx::query_as(
-            r#"SELECT config FROM settings WHERE id = 1"#
-        )
-        .fetch_optional(&self.pool)
-        .await?;
+        let row: Option<(serde_json::Value,)> =
+            sqlx::query_as(r#"SELECT config FROM settings WHERE id = 1"#)
+                .fetch_optional(&self.pool)
+                .await?;
 
         match row {
             Some((config,)) => {
-                let settings: Settings = serde_json::from_value(config)
-                    .unwrap_or_default();
+                let settings: Settings = serde_json::from_value(config).unwrap_or_default();
                 Ok(settings)
             }
             None => Ok(Settings::default()),
@@ -46,7 +44,7 @@ impl SettingsRepository for PgSettingsRepository {
             INSERT INTO settings (id, config) 
             VALUES (1, $1)
             ON CONFLICT (id) DO UPDATE SET config = $1
-            "#
+            "#,
         )
         .bind(config)
         .execute(&self.pool)

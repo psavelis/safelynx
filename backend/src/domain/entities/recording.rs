@@ -183,7 +183,7 @@ mod tests {
     fn complete_sets_status_and_end_time() {
         let mut recording = Recording::new(Uuid::new_v4(), "/path/to/file.mp4".to_string());
         recording.complete(1000, 5000, 150);
-        
+
         assert_eq!(recording.status(), RecordingStatus::Completed);
         assert!(!recording.is_active());
         assert!(recording.ended_at().is_some());

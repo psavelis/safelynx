@@ -1,6 +1,5 @@
 //! Sightings API Endpoints
 
-use std::sync::Arc;
 use axum::{
     extract::{Path, Query, State},
     http::StatusCode,
@@ -8,6 +7,7 @@ use axum::{
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 use uuid::Uuid;
 
 use crate::application::use_cases::TimeRange;
@@ -83,7 +83,7 @@ pub async fn list_sightings(
     Query(query): Query<SightingsQuery>,
 ) -> Result<Json<Vec<SightingResponse>>, StatusCode> {
     let limit = query.limit.unwrap_or(100);
-    
+
     let sightings = if let Some(profile_id) = query.profile_id {
         state
             .sighting_repo
@@ -92,10 +92,12 @@ pub async fn list_sightings(
             .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
     } else {
         let range = TimeRange {
-            start: query.start.unwrap_or_else(|| Utc::now() - chrono::Duration::days(1)),
+            start: query
+                .start
+                .unwrap_or_else(|| Utc::now() - chrono::Duration::days(1)),
             end: query.end.unwrap_or_else(Utc::now),
         };
-        
+
         state
             .query_analytics
             .get_sightings_in_range(range, limit)

@@ -8,7 +8,7 @@ use tokio::sync::RwLock;
 use tracing::{info, warn};
 use uuid::Uuid;
 
-use super::capture::{CameraCapture, CapturedFrame, CaptureConfig, CaptureState, list_cameras};
+use super::capture::{list_cameras, CameraCapture, CaptureConfig, CaptureState, CapturedFrame};
 use super::FaceDetector;
 use crate::application::use_cases::ProcessFrameUseCase;
 use crate::domain::entities::Camera;
@@ -22,10 +22,7 @@ pub struct CameraService {
 
 impl CameraService {
     /// Creates a new camera service.
-    pub fn new(
-        face_detector: Arc<FaceDetector>,
-        process_frame: Arc<ProcessFrameUseCase>,
-    ) -> Self {
+    pub fn new(face_detector: Arc<FaceDetector>, process_frame: Arc<ProcessFrameUseCase>) -> Self {
         Self {
             captures: Arc::new(RwLock::new(HashMap::new())),
             face_detector,
@@ -41,9 +38,13 @@ impl CameraService {
     /// Starts capture for a camera.
     pub async fn start_camera(&self, camera: &Camera) -> anyhow::Result<()> {
         let camera_id = camera.id();
-        
-        info!("Starting camera service for {} ({})", camera.name(), camera_id);
-        
+
+        info!(
+            "Starting camera service for {} ({})",
+            camera.name(),
+            camera_id
+        );
+
         // Create capture config based on camera settings
         let config = CaptureConfig {
             device_index: 0, // Default to first camera for built-in
@@ -51,43 +52,40 @@ impl CameraService {
             height: 720,
             fps: 15, // Lower FPS for face detection processing
         };
-        
+
         let capture = Arc::new(CameraCapture::new(camera_id, config));
-        
+
         // Store capture reference
         {
             let mut captures = self.captures.write().await;
             captures.insert(camera_id, capture.clone());
         }
-        
+
         // Start the capture
         capture.start().await?;
-        
+
         // Start frame processing in background
         let face_detector = self.face_detector.clone();
         let _process_frame = self.process_frame.clone();
         let mut frame_rx = capture.subscribe();
-        
+
         tokio::spawn(async move {
             info!("Frame processing started for camera {}", camera_id);
-            
+
             while let Ok(frame) = frame_rx.recv().await {
                 // Process every 3rd frame to reduce CPU load
                 if frame.frame_number % 3 != 0 {
                     continue;
                 }
-                
-                if let Err(e) = Self::process_frame_internal(
-                    &face_detector,
-                    frame,
-                ).await {
+
+                if let Err(e) = Self::process_frame_internal(&face_detector, frame).await {
                     warn!("Frame processing error: {}", e);
                 }
             }
-            
+
             info!("Frame processing stopped for camera {}", camera_id);
         });
-        
+
         Ok(())
     }
 
@@ -113,48 +111,45 @@ impl CameraService {
     /// Starts capture for the built-in camera automatically.
     pub async fn start_builtin_camera(&self) -> anyhow::Result<Uuid> {
         info!("Starting built-in camera capture automatically");
-        
+
         // Generate a camera ID for the built-in camera
         let camera_id = Uuid::new_v4();
-        
+
         let config = CaptureConfig {
             device_index: 0,
             width: 1280,
             height: 720,
             fps: 15,
         };
-        
+
         let capture = Arc::new(CameraCapture::new(camera_id, config));
-        
+
         {
             let mut captures = self.captures.write().await;
             captures.insert(camera_id, capture.clone());
         }
-        
+
         capture.start().await?;
-        
+
         // Start frame processing
         let face_detector = self.face_detector.clone();
         let mut frame_rx = capture.subscribe();
-        
+
         tokio::spawn(async move {
             info!("Built-in camera frame processing started");
-            
+
             while let Ok(frame) = frame_rx.recv().await {
                 // Process every 5th frame to reduce CPU load
                 if frame.frame_number % 5 != 0 {
                     continue;
                 }
-                
-                if let Err(e) = Self::process_frame_internal(
-                    &face_detector,
-                    frame,
-                ).await {
+
+                if let Err(e) = Self::process_frame_internal(&face_detector, frame).await {
                     warn!("Frame processing error: {}", e);
                 }
             }
         });
-        
+
         Ok(camera_id)
     }
 
@@ -166,10 +161,10 @@ impl CameraService {
         if frame.data.is_empty() {
             return Ok(());
         }
-        
+
         // Detect faces in the frame using the async detect method
         let detections = face_detector.detect(&frame).await;
-        
+
         if !detections.is_empty() {
             info!(
                 "Frame {}: Detected {} face(s) in camera {}",
@@ -177,7 +172,7 @@ impl CameraService {
                 detections.len(),
                 frame.camera_id
             );
-            
+
             for (i, detection) in detections.iter().enumerate() {
                 let bbox = detection.bounding_box();
                 info!(
@@ -191,7 +186,7 @@ impl CameraService {
                 );
             }
         }
-        
+
         Ok(())
     }
 
