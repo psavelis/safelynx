@@ -8,6 +8,8 @@
 import { httpClient, type ApiResponse } from './client'
 import type { Recording } from '@/types'
 
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:7889'
+
 export interface RecordingQuery {
   camera_id?: string
   status?: 'recording' | 'completed' | 'error'
@@ -46,6 +48,6 @@ export const recordingsSdk = {
    * Get the playback URL for a recording
    */
   getPlayUrl(id: string): string {
-    return `/api/v1/recordings/${id}/play`
+    return `${API_BASE}/api/v1/recordings/${id}/play`
   },
 }

@@ -9,22 +9,33 @@ import {
   VideoCameraIcon,
   FunnelIcon,
 } from '@heroicons/react/24/outline'
+import { Pagination } from '@/components'
 import { sdk } from '@/sdk'
 import { useFetch } from '@/hooks'
+import { useStore } from '@/store'
 import type { Recording } from '@/types'
 
 type FilterStatus = 'all' | 'recording' | 'completed' | 'error'
 
 export function Recordings() {
   const [filter, setFilter] = useState<FilterStatus>('all')
+  const [currentPage, setCurrentPage] = useState(1)
 
   const { data: recordings, loading, refetch } = useFetch<Recording[]>(
     () => sdk.recordings.list(),
     []
   )
 
+  const { pageSize, setPageSize } = useStore()
+
   const filteredRecordings = recordings?.filter(
     (r: Recording) => filter === 'all' || r.status === filter
+  ) ?? []
+
+  const totalPages = Math.ceil(filteredRecordings.length / pageSize)
+  const paginatedRecordings = filteredRecordings.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize
   )
 
   const handleDelete = async (id: string) => {
@@ -82,37 +93,39 @@ export function Recordings() {
 
   return (
     <div className="space-y-8">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-white">Recordings</h1>
-          <p className="mt-1 text-surface-400">
-            View and manage recorded video segments
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <FunnelIcon className="h-5 w-5 text-surface-500" />
-          {filterOptions.map((option) => (
-            <button
-              key={option.key}
-              onClick={() => setFilter(option.key)}
-              className={clsx(
-                'px-3 py-1.5 rounded-lg text-sm font-medium transition-colors',
-                filter === option.key
-                  ? 'bg-lynx-600 text-white'
-                  : 'bg-surface-800 text-surface-400 hover:text-white hover:bg-surface-700'
-              )}
-            >
-              {option.label}
-            </button>
-          ))}
-        </div>
+      <div>
+        <h1 className="text-2xl font-bold text-white">Recordings</h1>
+        <p className="mt-1 text-surface-400">
+          View and manage video recordings
+        </p>
+      </div>
+
+      <div className="flex items-center gap-2 overflow-x-auto pb-2">
+        <FunnelIcon className="h-5 w-5 text-surface-500 flex-shrink-0" />
+        {filterOptions.map((option) => (
+          <button
+            key={option.key}
+            onClick={() => {
+              setFilter(option.key)
+              setCurrentPage(1)
+            }}
+            className={clsx(
+              'px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap transition-colors menu-item',
+              filter === option.key
+                ? 'bg-lynx-600 text-white'
+                : 'bg-surface-800 text-surface-400 hover:text-white hover:bg-surface-700'
+            )}
+          >
+            {option.label}
+          </button>
+        ))}
       </div>
 
       {loading ? (
         <div className="flex items-center justify-center h-64">
           <div className="animate-spin h-8 w-8 border-2 border-lynx-500 border-t-transparent rounded-full" />
         </div>
-      ) : !filteredRecordings || filteredRecordings.length === 0 ? (
+      ) : filteredRecordings.length === 0 ? (
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -123,98 +136,89 @@ export function Recordings() {
             No recordings found
           </h3>
           <p className="mt-2 text-surface-400">
-            Recordings will appear here when detection-triggered recording is
-            active
+            Recordings will appear here when cameras are streaming
           </p>
         </motion.div>
       ) : (
-        <motion.div
-          variants={container}
-          initial="hidden"
-          animate="show"
-          className="space-y-3"
-        >
-          {filteredRecordings.map((recording, index) => (
-            <motion.div
-              key={recording.id}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.03 }}
-              className="card p-4"
-            >
-              <div className="flex items-center gap-4">
-                <div className="flex-shrink-0 w-32 h-20 bg-surface-800 rounded-lg flex items-center justify-center border border-surface-700">
-                  <VideoCameraIcon className="h-8 w-8 text-surface-600" />
-                </div>
-
+        <>
+          <motion.div
+            variants={container}
+            initial="hidden"
+            animate="show"
+            className="space-y-3"
+          >
+            {paginatedRecordings.map((recording) => (
+              <motion.div
+                key={recording.id}
+                variants={{
+                  hidden: { opacity: 0, y: 10 },
+                  show: { opacity: 1, y: 0 },
+                }}
+                className="card p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 card-hover"
+              >
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <h3 className="font-semibold text-white truncate">
-                        Recording {format(new Date(recording.started_at), 'PPp')}
-                      </h3>
-                      <div className="mt-1 flex items-center gap-4 text-sm text-surface-400">
-                        <span className="flex items-center gap-1.5">
-                          <VideoCameraIcon className="h-4 w-4" />
-                          Camera ID: {recording.camera_id.slice(0, 8)}...
-                        </span>
-                        <span>
-                          Trigger: {recording.trigger_type}
-                        </span>
-                      </div>
-                    </div>
+                  <div className="flex items-center gap-3 mb-2">
+                    <VideoCameraIcon className="h-5 w-5 text-surface-500 flex-shrink-0" />
+                    <h3 className="font-semibold text-white truncate">
+                      Camera {recording.camera_id.slice(0, 8)}
+                    </h3>
                     <span
-                      className={clsx('badge', statusColors[recording.status])}
+                      className={clsx(
+                        'badge',
+                        statusColors[recording.status as keyof typeof statusColors]
+                      )}
                     >
-                      {recording.status}
+                      {recording.status.toUpperCase()}
                     </span>
                   </div>
-
-                  <div className="mt-3 flex items-center gap-6 text-sm">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm text-surface-400">
                     <div>
-                      <span className="text-surface-500">Duration:</span>{' '}
-                      <span className="text-white">
-                        {formatRecordingDuration(recording.duration_secs)}
-                      </span>
+                      <span className="text-surface-500">Started:</span>
+                      <p>{format(new Date(recording.started_at), 'MMM dd, HH:mm')}</p>
                     </div>
                     <div>
-                      <span className="text-surface-500">Size:</span>{' '}
-                      <span className="text-white">
-                        {formatFileSize(recording.file_size_bytes)}
-                      </span>
+                      <span className="text-surface-500">Duration:</span>
+                      <p>{formatRecordingDuration(recording.duration_secs)}</p>
                     </div>
-                    {recording.ended_at && (
-                      <div>
-                        <span className="text-surface-500">Ended:</span>{' '}
-                        <span className="text-white">
-                          {format(new Date(recording.ended_at), 'PPp')}
-                        </span>
-                      </div>
-                    )}
+                    <div>
+                      <span className="text-surface-500">Size:</span>
+                      <p>{formatFileSize(recording.file_size_bytes)}</p>
+                    </div>
                   </div>
                 </div>
-
                 <div className="flex items-center gap-2">
                   {recording.status === 'completed' && (
                     <button
                       onClick={() => handlePlay(recording.id)}
-                      className="btn-primary py-2 px-3"
+                      className="btn-secondary"
+                      title="Play recording"
                     >
                       <PlayIcon className="h-5 w-5" />
-                      Play
                     </button>
                   )}
                   <button
                     onClick={() => handleDelete(recording.id)}
-                    className="btn-danger py-2 px-3"
+                    className="btn-danger"
+                    title="Delete recording"
                   >
                     <TrashIcon className="h-5 w-5" />
                   </button>
                 </div>
-              </div>
-            </motion.div>
-          ))}
-        </motion.div>
+              </motion.div>
+            ))}
+          </motion.div>
+
+          {totalPages > 1 && (
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              pageSize={pageSize}
+              onPageChange={setCurrentPage}
+              onPageSizeChange={setPageSize}
+              totalItems={filteredRecordings.length}
+            />
+          )}
+        </>
       )}
     </div>
   )

@@ -38,6 +38,7 @@ pub fn routes(_state: Arc<AppState>) -> Router<Arc<AppState>> {
         .route("/cameras/:id", delete(cameras::delete_camera))
         .route("/cameras/:id/stream/start", post(cameras::start_stream))
         .route("/cameras/:id/stream/stop", post(cameras::stop_stream))
+        .route("/cameras/:id/mjpeg", get(cameras::mjpeg_stream))
         .route("/cameras/available", get(cameras::list_available_cameras))
         // Sightings
         .route("/sightings", get(sightings::list_sightings))

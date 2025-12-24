@@ -6,7 +6,7 @@ import {
   FunnelIcon,
   UserIcon,
 } from '@heroicons/react/24/outline'
-import { ProfileCard } from '@/components'
+import { ProfileCard, Pagination } from '@/components'
 import { sdk } from '@/sdk'
 import { useFetch } from '@/hooks'
 import { useStore } from '@/store'
@@ -17,19 +17,18 @@ type FilterType = 'all' | 'known' | 'unknown' | 'flagged'
 export function Profiles() {
   const [filter, setFilter] = useState<FilterType>('all')
   const [search, setSearch] = useState('')
+  const [currentPage, setCurrentPage] = useState(1)
 
   const { data: profiles, loading } = useFetch<Profile[]>(
     () => sdk.profiles.list(200),
     []
   )
 
-  const { setProfiles } = useStore()
+  const { pageSize, setPageSize } = useStore()
 
   useEffect(() => {
-    if (profiles) {
-      setProfiles(profiles)
-    }
-  }, [profiles, setProfiles])
+    setCurrentPage(1)
+  }, [filter, search])
 
   const filteredProfiles = profiles?.filter((profile: Profile) => {
     const matchesFilter = filter === 'all' || profile.classification === filter
@@ -40,7 +39,13 @@ export function Profiles() {
         tag.toLowerCase().includes(search.toLowerCase())
       )
     return matchesFilter && matchesSearch
-  })
+  }) ?? []
+
+  const totalPages = Math.ceil(filteredProfiles.length / pageSize)
+  const paginatedProfiles = filteredProfiles.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize
+  )
 
   const filterOptions: { key: FilterType; label: string; count: number }[] = [
     { key: 'all', label: 'All', count: profiles?.length ?? 0 },
@@ -98,7 +103,7 @@ export function Profiles() {
               key={option.key}
               onClick={() => setFilter(option.key)}
               className={clsx(
-                'px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap transition-colors',
+                'px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap transition-colors menu-item',
                 filter === option.key
                   ? 'bg-lynx-600 text-white'
                   : 'bg-surface-800 text-surface-400 hover:text-white hover:bg-surface-700'
@@ -115,7 +120,7 @@ export function Profiles() {
         <div className="flex items-center justify-center h-64">
           <div className="animate-spin h-8 w-8 border-2 border-lynx-500 border-t-transparent rounded-full" />
         </div>
-      ) : filteredProfiles?.length === 0 ? (
+      ) : filteredProfiles.length === 0 ? (
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -132,16 +137,27 @@ export function Profiles() {
           </p>
         </motion.div>
       ) : (
-        <motion.div
-          variants={container}
-          initial="hidden"
-          animate="show"
-          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
-        >
-          {filteredProfiles?.map((profile) => (
-            <ProfileCard key={profile.id} profile={profile} />
-          ))}
-        </motion.div>
+        <>
+          <motion.div
+            variants={container}
+            initial="hidden"
+            animate="show"
+            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
+          >
+            {paginatedProfiles.map((profile) => (
+              <ProfileCard key={profile.id} profile={profile} />
+            ))}
+          </motion.div>
+
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            pageSize={pageSize}
+            onPageChange={setCurrentPage}
+            onPageSizeChange={setPageSize}
+            totalItems={filteredProfiles.length}
+          />
+        </>
       )}
     </div>
   )

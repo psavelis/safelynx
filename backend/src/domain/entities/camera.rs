@@ -19,6 +19,8 @@ pub enum CameraType {
     Usb,
     /// IP camera with RTSP stream
     Rtsp,
+    /// Browser-based camera (WebRTC)
+    Browser,
 }
 
 /// Camera status.

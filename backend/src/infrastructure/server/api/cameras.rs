@@ -1,13 +1,17 @@
 //! Camera API Endpoints
 
 use axum::{
+    body::Body,
     extract::{Path, State},
     http::StatusCode,
+    response::{IntoResponse, Response},
     Json,
 };
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use uuid::Uuid;
+use futures_util::stream::StreamExt;
+use tokio_stream::wrappers::BroadcastStream;
 
 use crate::application::use_cases::{CreateCameraRequest, UpdateCameraRequest};
 use crate::domain::entities::{Camera, CameraStatus, CameraType};
@@ -251,4 +255,147 @@ pub async fn list_available_cameras() -> Json<Vec<AvailableCameraResponse>> {
         .collect();
 
     Json(responses)
+}
+
+/// GET /api/v1/cameras/:id/mjpeg - MJPEG video stream
+pub async fn mjpeg_stream(
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<Uuid>,
+) -> Result<Response, StatusCode> {
+    tracing::info!("MJPEG stream requested for camera: {}", id);
+
+    // Get the frame receiver from camera service
+    let receiver = state
+        .camera_service
+        .subscribe_frames(id)
+        .await
+        .ok_or_else(|| {
+            tracing::error!("Camera {} not found or no frame subscription available", id);
+            StatusCode::NOT_FOUND
+        })?;
+
+    tracing::info!("Successfully subscribed to camera {} frame stream", id);
+
+    // Create MJPEG boundary
+    let boundary = "frame";
+
+    // Convert frames to MJPEG stream
+    let stream = BroadcastStream::new(receiver).filter_map(move |result| {
+        async move {
+            match result {
+                Ok(frame) => {
+                    tracing::debug!(
+                        "Received frame: {}x{}, {} bytes",
+                        frame.width,
+                        frame.height,
+                        frame.data.len()
+                    );
+                    // Encode frame as JPEG
+                    match encode_jpeg(&frame.data, frame.width, frame.height) {
+                        Ok(jpeg_data) => {
+                            tracing::debug!("Encoded JPEG: {} bytes", jpeg_data.len());
+                            let header = format!(
+                                "--{}\r\nContent-Type: image/jpeg\r\nContent-Length: {}\r\n\r\n",
+                                boundary,
+                                jpeg_data.len()
+                            );
+                            let mut data = header.into_bytes();
+                            data.extend(jpeg_data);
+                            data.extend(b"\r\n");
+                            Some(Ok::<_, std::io::Error>(data))
+                        }
+                        Err(e) => {
+                            tracing::error!("JPEG encoding failed: {}", e);
+                            None
+                        }
+                    }
+                }
+                Err(e) => {
+                    tracing::warn!("Frame receive error: {:?}", e);
+                    None
+                }
+            }
+        }
+    });
+
+    let body = Body::from_stream(stream);
+
+    Ok(Response::builder()
+        .status(StatusCode::OK)
+        .header(
+            "Content-Type",
+            format!("multipart/x-mixed-replace; boundary={}", boundary),
+        )
+        .header("Cache-Control", "no-cache")
+        .header("Connection", "keep-alive")
+        .body(body)
+        .unwrap())
+}
+
+/// Encode frame data to JPEG
+/// nokhwa returns data in various formats depending on the camera, so we need to handle this
+fn encode_jpeg(frame_data: &[u8], width: u32, height: u32) -> Result<Vec<u8>, String> {
+    use image::{DynamicImage, ImageBuffer, Rgb, Rgba};
+    use std::io::Cursor;
+
+    let expected_rgb = (width * height * 3) as usize;
+    let expected_rgba = (width * height * 4) as usize;
+
+    tracing::debug!(
+        "encode_jpeg: data_len={}, width={}, height={}, expected_rgb={}, expected_rgba={}",
+        frame_data.len(),
+        width,
+        height,
+        expected_rgb,
+        expected_rgba
+    );
+
+    let img: DynamicImage = if frame_data.len() == expected_rgb {
+        // Standard RGB format
+        let img_buf: ImageBuffer<Rgb<u8>, _> =
+            ImageBuffer::from_raw(width, height, frame_data.to_vec())
+                .ok_or("Failed to create RGB image buffer")?;
+        DynamicImage::ImageRgb8(img_buf)
+    } else if frame_data.len() == expected_rgba {
+        // RGBA format (common on macOS AVFoundation)
+        let img_buf: ImageBuffer<Rgba<u8>, _> =
+            ImageBuffer::from_raw(width, height, frame_data.to_vec())
+                .ok_or("Failed to create RGBA image buffer")?;
+        DynamicImage::ImageRgba8(img_buf)
+    } else {
+        // Try to decode as raw format - nokhwa sometimes returns unusual buffer sizes
+        // Fall back to trying RGB with clipping
+        let actual_pixels = frame_data.len() / 3;
+        tracing::warn!(
+            "Unexpected frame size: {} bytes for {}x{} (expected {} RGB or {} RGBA). Actual pixels: {}",
+            frame_data.len(),
+            width,
+            height,
+            expected_rgb,
+            expected_rgba,
+            actual_pixels
+        );
+
+        // Try to infer dimensions if buffer is smaller
+        if frame_data.len() >= expected_rgb {
+            // Just use what we need
+            let img_buf: ImageBuffer<Rgb<u8>, _> =
+                ImageBuffer::from_raw(width, height, frame_data[..expected_rgb].to_vec())
+                    .ok_or("Failed to create truncated RGB buffer")?;
+            DynamicImage::ImageRgb8(img_buf)
+        } else {
+            return Err(format!(
+                "Frame buffer too small: {} bytes for {}x{} image",
+                frame_data.len(),
+                width,
+                height
+            ));
+        }
+    };
+
+    let mut buffer = Cursor::new(Vec::new());
+    img.write_to(&mut buffer, image::ImageFormat::Jpeg)
+        .map_err(|e| format!("JPEG encoding failed: {}", e))?;
+
+    Ok(buffer.into_inner())
 }

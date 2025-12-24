@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
+import { useNavigate } from 'react-router-dom'
 import clsx from 'clsx'
 import { format } from 'date-fns'
 import {
@@ -12,7 +13,10 @@ import { sdk } from '@/sdk'
 import { useFetch } from '@/hooks'
 import type { TimelineEntry } from '@/types'
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:7889'
+
 export function Timeline() {
+  const navigate = useNavigate()
   const [period, setPeriod] = useState<'24h' | '7d' | '30d'>('24h')
 
   const getTimeRange = () => {
@@ -139,23 +143,35 @@ export function Timeline() {
                       <div className="flex-shrink-0">
                         {event.thumbnail_url ? (
                           <img
-                            src={event.thumbnail_url}
+                            src={`${API_URL}${event.thumbnail_url}`}
                             alt=""
                             className="h-12 w-12 rounded-lg object-cover border border-surface-700"
+                            onError={(e) => {
+                              e.currentTarget.style.display = 'none'
+                              e.currentTarget.nextElementSibling?.classList.remove('hidden')
+                            }}
                           />
-                        ) : (
-                          <div className="h-12 w-12 rounded-lg bg-surface-800 flex items-center justify-center border border-surface-700">
-                            <UserIcon className="h-6 w-6 text-surface-500" />
-                          </div>
-                        )}
+                        ) : null}
+                        <div className={clsx(
+                          "h-12 w-12 rounded-lg bg-surface-800 flex items-center justify-center border border-surface-700",
+                          event.thumbnail_url ? "hidden" : ""
+                        )}>
+                          <UserIcon className="h-6 w-6 text-surface-500" />
+                        </div>
                       </div>
 
                       <div className="flex-1 min-w-0">
                         <div className="flex items-start justify-between gap-2">
                           <div>
-                            <span className="font-medium text-white">
+                            <button
+                              onClick={() => event.profile_id && navigate(`/profiles/${event.profile_id}`)}
+                              className={clsx(
+                                "font-medium text-white",
+                                event.profile_id && "hover:text-accent-400 transition-colors"
+                              )}
+                            >
                               {event.profile_name || 'Unknown Person'}
-                            </span>
+                            </button>
                             <span className="text-surface-500 mx-2">•</span>
                             <span className="text-surface-400">
                               {event.event_type === 'sighting'

@@ -45,11 +45,17 @@ pub struct LocationResponse {
 impl From<Sighting> for SightingResponse {
     fn from(s: Sighting) -> Self {
         let bbox = s.bounding_box();
+        // Extract just the filename if it's an absolute path
+        let snapshot_path = s.snapshot_path();
+        let filename = std::path::Path::new(snapshot_path)
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or(snapshot_path);
         Self {
             id: s.id(),
             profile_id: s.profile_id(),
             camera_id: s.camera_id(),
-            snapshot_url: format!("/files/snapshots/{}", s.snapshot_path()),
+            snapshot_url: format!("/files/snapshots/{}", filename),
             bounding_box: BoundingBoxResponse {
                 x: bbox.x(),
                 y: bbox.y(),

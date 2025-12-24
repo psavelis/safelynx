@@ -92,6 +92,9 @@ pub trait CameraRepository: Send + Sync {
     /// Finds a camera by ID.
     async fn find_by_id(&self, id: Uuid) -> RepoResult<Option<Camera>>;
 
+    /// Finds a camera by device ID.
+    async fn find_by_device_id(&self, device_id: &str) -> RepoResult<Option<Camera>>;
+
     /// Finds all cameras.
     async fn find_all(&self) -> RepoResult<Vec<Camera>>;
 

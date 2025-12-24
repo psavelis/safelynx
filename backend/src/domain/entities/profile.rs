@@ -113,7 +113,43 @@ impl Profile {
     pub fn display_name(&self) -> String {
         self.name
             .clone()
-            .unwrap_or_else(|| format!("Unknown #{}", &self.id.to_string()[..8]))
+            .unwrap_or_else(|| Self::generate_friendly_name(&self.id))
+    }
+
+    /// Generates a friendly name from a UUID using adjective + noun patterns.
+    /// The name is deterministic based on the UUID.
+    fn generate_friendly_name(id: &Uuid) -> String {
+        // Adjectives - friendly, non-judgmental words
+        const ADJECTIVES: &[&str] = &[
+            "Swift", "Bright", "Calm", "Kind", "Bold",
+            "Warm", "Wise", "Keen", "Fair", "Noble",
+            "Quick", "Quiet", "Vivid", "Gentle", "Brave",
+            "Merry", "Clever", "Eager", "Jolly", "Lucky",
+            "Happy", "Proud", "Humble", "Honest", "Polite",
+            "Steady", "Agile", "Witty", "Lively", "Cheerful",
+            "Serene", "Radiant", "Graceful", "Daring", "Loyal",
+        ];
+        
+        // Nouns - neutral, nature-inspired words
+        const NOUNS: &[&str] = &[
+            "Fox", "Owl", "Wolf", "Bear", "Deer",
+            "Hawk", "Raven", "Tiger", "Lion", "Eagle",
+            "Falcon", "Otter", "Badger", "Heron", "Crane",
+            "Phoenix", "Griffin", "Dragon", "Panda", "Koala",
+            "Lynx", "Jaguar", "Panther", "Osprey", "Condor",
+            "Sparrow", "Robin", "Finch", "Jay", "Wren",
+            "Cedar", "Oak", "Pine", "Maple", "Birch",
+        ];
+        
+        // Use UUID bytes to deterministically select words
+        let bytes = id.as_bytes();
+        let adj_idx = (bytes[0] as usize + bytes[1] as usize) % ADJECTIVES.len();
+        let noun_idx = (bytes[2] as usize + bytes[3] as usize) % NOUNS.len();
+        
+        // Use last 4 hex chars for uniqueness
+        let suffix = &id.to_string()[id.to_string().len()-4..];
+        
+        format!("{} {} #{}", ADJECTIVES[adj_idx], NOUNS[noun_idx], suffix.to_uppercase())
     }
 
     pub fn classification(&self) -> ProfileClassification {

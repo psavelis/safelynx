@@ -137,6 +137,7 @@ impl AppState {
         let camera_service = Arc::new(CameraService::new(
             face_detector.clone(),
             process_frame.clone(),
+            camera_repo.clone(),
         ));
 
         // Start built-in camera capture automatically

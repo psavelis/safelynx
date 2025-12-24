@@ -137,7 +137,7 @@ impl ManageCamerasUseCase {
         Ok(true)
     }
 
-    /// Enables or disables a camera.
+    /// Enables or disables a camera and updates its status.
     pub async fn set_camera_enabled(&self, id: Uuid, enabled: bool) -> RepoResult<bool> {
         let camera = match self.camera_repo.find_by_id(id).await? {
             Some(c) => c,
@@ -146,6 +146,12 @@ impl ManageCamerasUseCase {
 
         let mut camera = camera;
         camera.set_enabled(enabled);
+        // Also update the status based on enabled state
+        if enabled {
+            camera.set_status(CameraStatus::Active);
+        } else {
+            camera.set_status(CameraStatus::Inactive);
+        }
         self.camera_repo.update(&camera).await?;
 
         Ok(true)

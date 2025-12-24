@@ -15,7 +15,7 @@ export interface Profile {
 export interface Camera {
   id: string
   name: string
-  camera_type: 'builtin' | 'usb' | 'rtsp'
+  camera_type: 'builtin' | 'usb' | 'rtsp' | 'browser'
   device_id: string
   rtsp_url: string | null
   status: 'active' | 'inactive' | 'error'
@@ -172,4 +172,5 @@ export interface FaceDetectedPayload {
   confidence: number
   bounding_box: BoundingBox
   timestamp: string
+  landmarks?: { x: number; y: number }[]
 }

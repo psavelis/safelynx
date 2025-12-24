@@ -4,13 +4,18 @@ import clsx from 'clsx'
 interface StatCardProps {
   title: string
   value: string | number
-  subtitle?: string
+  subtitle?: string | React.ReactNode
   icon?: React.ComponentType<{ className?: string }>
   trend?: {
     value: number
     positive?: boolean
   }
   variant?: 'default' | 'success' | 'warning' | 'danger'
+  breakdown?: {
+    label: string
+    value: number
+    color?: string
+  }[]
 }
 
 export function StatCard({
@@ -20,6 +25,7 @@ export function StatCard({
   icon: Icon,
   trend,
   variant = 'default',
+  breakdown,
 }: StatCardProps) {
   const variants = {
     default: 'from-surface-800 to-surface-900',
@@ -35,27 +41,57 @@ export function StatCard({
     danger: 'text-red-500',
   }
 
+  const accentColors = {
+    default: 'border-lynx-500/30',
+    success: 'border-emerald-500/30',
+    warning: 'border-amber-500/30',
+    danger: 'border-red-500/30',
+  }
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       className={clsx(
         'relative overflow-hidden rounded-2xl p-6',
-        'bg-gradient-to-br border border-surface-800',
-        variants[variant]
+        'bg-gradient-to-br border',
+        variants[variant],
+        accentColors[variant]
       )}
     >
       <div className="flex items-start justify-between">
-        <div>
-          <p className="text-sm font-medium text-surface-400">{title}</p>
-          <p className="mt-2 text-3xl font-bold text-white">{value}</p>
+        <div className="flex-1">
+          {/* x.AI style: uppercase, tracking-wider, monospace */}
+          <p className="text-xs font-semibold text-surface-400 uppercase tracking-[0.2em] font-mono">
+            {title}
+          </p>
+          <p className="mt-3 text-4xl font-bold text-white font-mono tracking-tight">
+            {value}
+          </p>
           {subtitle && (
-            <p className="mt-1 text-sm text-surface-500">{subtitle}</p>
+            <div className="mt-2 text-sm text-surface-500 font-mono">
+              {subtitle}
+            </div>
+          )}
+          {breakdown && breakdown.length > 0 && (
+            <div className="mt-3 flex items-center gap-3 text-xs font-mono">
+              {breakdown.map((item, i) => (
+                <span key={i} className="flex items-center gap-1.5">
+                  <span className={clsx(
+                    'w-1.5 h-1.5 rounded-full',
+                    item.color || 'bg-lynx-500'
+                  )} />
+                  <span className="text-surface-400 uppercase tracking-wider">
+                    {item.value} {item.label}
+                  </span>
+                </span>
+              ))}
+            </div>
           )}
           {trend && (
             <p
               className={clsx(
-                'mt-2 text-sm font-medium',
+                'mt-2 text-sm font-mono font-medium',
                 trend.positive ? 'text-emerald-400' : 'text-red-400'
               )}
             >

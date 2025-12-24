@@ -35,9 +35,14 @@ impl From<Profile> for ProfileResponse {
             name: p.name().map(String::from),
             display_name: p.display_name(),
             classification: p.classification(),
-            thumbnail_url: p
-                .thumbnail_path()
-                .map(|p| format!("/files/snapshots/{}", p)),
+            thumbnail_url: p.thumbnail_path().map(|path| {
+                // Extract just the filename if it's an absolute path
+                let filename = std::path::Path::new(path)
+                    .file_name()
+                    .and_then(|n| n.to_str())
+                    .unwrap_or(path);
+                format!("/files/snapshots/{}", filename)
+            }),
             tags: p.tags().iter().map(|t| t.value().to_string()).collect(),
             notes: p.notes().map(String::from),
             first_seen_at: p.first_seen_at().to_rfc3339(),
@@ -213,11 +218,17 @@ pub struct LocationResponse {
 
 impl From<Sighting> for SightingResponse {
     fn from(s: Sighting) -> Self {
+        // Extract just the filename if it's an absolute path
+        let snapshot_path = s.snapshot_path();
+        let filename = std::path::Path::new(snapshot_path)
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or(snapshot_path);
         Self {
             id: s.id(),
             profile_id: s.profile_id(),
             camera_id: s.camera_id(),
-            snapshot_url: format!("/files/snapshots/{}", s.snapshot_path()),
+            snapshot_url: format!("/files/snapshots/{}", filename),
             confidence: s.confidence(),
             location: s.location().map(|l| LocationResponse {
                 latitude: l.latitude(),

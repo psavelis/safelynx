@@ -73,6 +73,27 @@ impl CameraRepository for PgCameraRepository {
         Ok(row.map(|r| self.row_to_camera(r)))
     }
 
+    async fn find_by_device_id(&self, device_id: &str) -> RepoResult<Option<Camera>> {
+        let row = sqlx::query_as::<_, CameraRow>(
+            r#"
+            SELECT 
+                id, name, camera_type, device_id, rtsp_url,
+                location_lat, location_lon, location_alt, location_name,
+                status, resolution_width, resolution_height, fps,
+                is_enabled, last_frame_at, created_at, updated_at
+            FROM cameras
+            WHERE device_id = $1
+            ORDER BY created_at ASC
+            LIMIT 1
+            "#,
+        )
+        .bind(device_id)
+        .fetch_optional(&self.pool)
+        .await?;
+
+        Ok(row.map(|r| self.row_to_camera(r)))
+    }
+
     async fn find_all(&self) -> RepoResult<Vec<Camera>> {
         let rows = sqlx::query_as::<_, CameraRow>(
             r#"

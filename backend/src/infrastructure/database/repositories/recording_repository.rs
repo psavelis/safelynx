@@ -191,7 +191,7 @@ impl RecordingRepository for PgRecordingRepository {
 
     async fn total_storage_bytes(&self) -> RepoResult<i64> {
         let result: (i64,) = sqlx::query_as(
-            r#"SELECT COALESCE(SUM(file_size_bytes), 0) FROM recordings WHERE status != 'deleting'"#
+            r#"SELECT COALESCE(SUM(file_size_bytes)::BIGINT, 0) FROM recordings WHERE status != 'deleting'"#
         )
         .fetch_one(&self.pool)
         .await?;

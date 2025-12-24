@@ -38,6 +38,8 @@ export interface RequestConfig {
   signal?: AbortSignal
 }
 
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:7889'
+
 /**
  * Safelynx HTTP Client using native fetch
  */
@@ -45,7 +47,7 @@ export class HttpClient {
   private baseUrl: string
   private defaultHeaders: Record<string, string>
 
-  constructor(baseUrl: string = '/api/v1') {
+  constructor(baseUrl: string = `${API_BASE}/api/v1`) {
     this.baseUrl = baseUrl
     this.defaultHeaders = {
       'Content-Type': 'application/json',
@@ -53,8 +55,7 @@ export class HttpClient {
   }
 
   private buildUrl(path: string, params?: Record<string, string | number | boolean | undefined>): string {
-    const url = new URL(path, window.location.origin)
-    url.pathname = `${this.baseUrl}${path}`
+    const url = new URL(`${this.baseUrl}${path}`)
     
     if (params) {
       Object.entries(params).forEach(([key, value]) => {

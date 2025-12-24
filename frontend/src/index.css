@@ -31,6 +31,14 @@
 }
 
 @layer components {
+  h1, h2, h3, h4, h5, h6 {
+    @apply uppercase tracking-wider;
+  }
+
+  .menu-item {
+    @apply uppercase text-sm font-semibold tracking-wide;
+  }
+
   .glass {
     @apply bg-surface-900/80 backdrop-blur-xl border border-surface-800;
   }
@@ -152,4 +160,30 @@
     -webkit-background-clip: padding-box, border-box;
     background-clip: padding-box, border-box;
   }
+}
+
+/* Detection Animations */
+@keyframes scan {
+  0% {
+    transform: translateY(-100%);
+  }
+  100% {
+    transform: translateY(100vh);
+  }
+}
+
+.animate-scan {
+  animation: scan 2s linear infinite;
+}
+
+/* Heatmap Gradient */
+.heatmap-gradient {
+  background: radial-gradient(
+    circle,
+    rgba(239, 68, 68, 0.8) 0%,
+    rgba(249, 115, 22, 0.6) 25%,
+    rgba(234, 179, 8, 0.4) 50%,
+    rgba(34, 197, 94, 0.2) 75%,
+    rgba(59, 130, 246, 0.1) 100%
+  );
 }

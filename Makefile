@@ -1,16 +1,22 @@
 # Safelynx - Face Recognition Security Platform
 # Compatible with macOS M1/M4
 
-.PHONY: help up down build clean test lint docker-up docker-down dev frontend backend db migrate run-all down-all
+.PHONY: help up down build clean test lint docker-up docker-down dev frontend backend db migrate run-all down-all setup-interactive ngrok
 
 SHELL := /bin/zsh
 PROJECT_NAME := safelynx
 RUST_LOG := info
 DATABASE_URL := postgres://safelynx:safelynx@localhost:7888/safelynx
+CONFIG_FILE := $(HOME)/.safelynx/config.env
 
-# Directories
-BACKEND_DIR := backend
-FRONTEND_DIR := frontend
+# Load config if exists
+-include $(CONFIG_FILE)
+
+# Directories (use absolute paths for reliability)
+ROOT_DIR := $(shell pwd)
+BACKEND_DIR := $(ROOT_DIR)/backend
+FRONTEND_DIR := $(ROOT_DIR)/frontend
+SCRIPTS_DIR := $(ROOT_DIR)/scripts
 DATA_DIR := $(HOME)/Documents/Safelynx
 
 # Colors
@@ -27,8 +33,10 @@ help: ## Display this help
 	@echo "  $(CYAN)╚═══════════════════════════════════════════════════════════╝$(RESET)"
 	@echo ""
 	@echo "  $(GREEN)Quick Start:$(RESET)"
+	@echo "    $(CYAN)make setup$(RESET)     Interactive setup wizard"
 	@echo "    $(CYAN)make run-all$(RESET)   Start everything (database, backend, frontend)"
 	@echo "    $(CYAN)make down-all$(RESET)  Stop everything"
+	@echo "    $(CYAN)make ngrok$(RESET)     Start ngrok tunnels for remote access"
 	@echo ""
 	@echo "  $(GREEN)All Commands:$(RESET)"
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "    $(CYAN)%-15s$(RESET) %s\n", $$1, $$2}'
@@ -38,12 +46,20 @@ help: ## Display this help
 # Main Commands
 # =============================================================================
 
+setup: ## 🔧 Interactive setup wizard
+	@$(SCRIPTS_DIR)/setup.sh
+
 run-all: ## 🚀 Start everything for production (DB + Backend + Frontend)
 	@echo ""
 	@echo "  $(CYAN)╔═══════════════════════════════════════════════════════════╗$(RESET)"
 	@echo "  $(CYAN)║$(RESET)   $(GREEN)🦁 Starting SAFELYNX$(RESET)                                   $(CYAN)║$(RESET)"
 	@echo "  $(CYAN)╚═══════════════════════════════════════════════════════════╝$(RESET)"
 	@echo ""
+	@if [ ! -f "$(CONFIG_FILE)" ]; then \
+		echo "  $(YELLOW)→$(RESET) No configuration found. Running setup..."; \
+		$(SCRIPTS_DIR)/setup.sh; \
+	fi
+	@if [ -f "$(CONFIG_FILE)" ]; then . $(CONFIG_FILE); fi
 	@mkdir -p $(DATA_DIR)/recordings $(DATA_DIR)/snapshots $(DATA_DIR)/db $(DATA_DIR)/logs
 	@echo "  $(CYAN)→$(RESET) Starting PostgreSQL database..."
 	@$(MAKE) docker-up --no-print-directory
@@ -70,12 +86,43 @@ run-all: ## 🚀 Start everything for production (DB + Backend + Frontend)
 	@echo "  $(GREEN)║$(RESET)   Backend:   $(CYAN)http://localhost:7889$(RESET)                       $(GREEN)║$(RESET)"
 	@echo "  $(GREEN)║$(RESET)   Database:  $(CYAN)localhost:7888$(RESET)                              $(GREEN)║$(RESET)"
 	@echo "  $(GREEN)║$(RESET)                                                           $(GREEN)║$(RESET)"
+	@echo "  $(GREEN)║$(RESET)   Remote:    $(YELLOW)make ngrok$(RESET) (for browser camera access)    $(GREEN)║$(RESET)"
 	@echo "  $(GREEN)║$(RESET)   To stop:   $(YELLOW)make down-all$(RESET)                              $(GREEN)║$(RESET)"
 	@echo "  $(GREEN)╚═══════════════════════════════════════════════════════════╝$(RESET)"
 	@echo ""
 	@if command -v open >/dev/null 2>&1; then \
 		sleep 1 && open http://localhost:7900; \
 	fi
+
+ngrok: ## 🌐 Start ngrok tunnels for remote camera access
+	@echo ""
+	@echo "  $(CYAN)╔═══════════════════════════════════════════════════════════╗$(RESET)"
+	@echo "  $(CYAN)║$(RESET)   $(GREEN)🌐 Starting ngrok tunnels$(RESET)                             $(CYAN)║$(RESET)"
+	@echo "  $(CYAN)╚═══════════════════════════════════════════════════════════╝$(RESET)"
+	@echo ""
+	@if ! command -v ngrok >/dev/null 2>&1; then \
+		echo "  $(RED)✗ ngrok not installed$(RESET)"; \
+		echo "  Install with: $(CYAN)brew install ngrok$(RESET)"; \
+		echo "  Then run: $(CYAN)ngrok config add-authtoken YOUR_TOKEN$(RESET)"; \
+		exit 1; \
+	fi
+	@echo "  $(CYAN)→$(RESET) Starting backend tunnel (port 7889)..."
+	@ngrok http 7889 --log=stdout > $(DATA_DIR)/logs/ngrok-backend.log 2>&1 &
+	@sleep 3
+	@echo "  $(CYAN)→$(RESET) Starting frontend tunnel (port 7900)..."
+	@ngrok http 7900 --log=stdout > $(DATA_DIR)/logs/ngrok-frontend.log 2>&1 &
+	@sleep 3
+	@echo ""
+	@echo "  $(GREEN)ngrok tunnels started!$(RESET)"
+	@echo "  Check $(CYAN)http://localhost:4040$(RESET) for tunnel URLs"
+	@echo ""
+	@echo "  $(YELLOW)Note:$(RESET) Update VITE_API_URL to the ngrok backend URL"
+	@echo "  for remote browser camera access."
+	@echo ""
+
+ngrok-stop: ## 🛑 Stop ngrok tunnels
+	@-pkill -f "ngrok" 2>/dev/null || true
+	@echo "  $(GREEN)✅ ngrok tunnels stopped.$(RESET)"
 
 down-all: ## 🛑 Stop all Safelynx services
 	@echo ""

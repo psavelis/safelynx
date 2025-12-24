@@ -1,8 +1,11 @@
 import { motion } from 'framer-motion'
+import { useNavigate } from 'react-router-dom'
 import clsx from 'clsx'
 import { UserIcon } from '@heroicons/react/24/outline'
 import { formatDistanceToNow } from 'date-fns'
 import type { Profile } from '@/types'
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:7889'
 
 interface ProfileCardProps {
   profile: Profile
@@ -10,6 +13,8 @@ interface ProfileCardProps {
 }
 
 export function ProfileCard({ profile, onClick }: ProfileCardProps) {
+  const navigate = useNavigate()
+  
   const classification = {
     trusted: { label: 'Trusted', class: 'badge-success' },
     known: { label: 'Known', class: 'badge-success' },
@@ -17,27 +22,47 @@ export function ProfileCard({ profile, onClick }: ProfileCardProps) {
     flagged: { label: 'Flagged', class: 'badge-danger' },
   }[profile.classification]
 
+  const handleClick = () => {
+    if (onClick) {
+      onClick()
+    } else {
+      navigate(`/profiles/${profile.id}`)
+    }
+  }
+
+  // Build full thumbnail URL
+  const thumbnailUrl = profile.thumbnail_url 
+    ? `${API_URL}${profile.thumbnail_url}`
+    : null
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       whileHover={{ y: -2 }}
       className="card card-hover p-4 cursor-pointer"
-      onClick={onClick}
+      onClick={handleClick}
     >
       <div className="flex items-start gap-4">
         <div className="relative flex-shrink-0">
-          {profile.thumbnail_url ? (
+          {thumbnailUrl ? (
             <img
-              src={profile.thumbnail_url}
-              alt={profile.name || 'Profile'}
+              src={thumbnailUrl}
+              alt={profile.name || profile.display_name || 'Profile'}
               className="h-16 w-16 rounded-xl object-cover border border-surface-700"
+              onError={(e) => {
+                // Hide broken image and show fallback
+                e.currentTarget.style.display = 'none'
+                e.currentTarget.nextElementSibling?.classList.remove('hidden')
+              }}
             />
-          ) : (
-            <div className="h-16 w-16 rounded-xl bg-surface-800 flex items-center justify-center border border-surface-700">
-              <UserIcon className="h-8 w-8 text-surface-500" />
-            </div>
-          )}
+          ) : null}
+          <div className={clsx(
+            "h-16 w-16 rounded-xl bg-surface-800 flex items-center justify-center border border-surface-700",
+            thumbnailUrl ? "hidden" : ""
+          )}>
+            <UserIcon className="h-8 w-8 text-surface-500" />
+          </div>
           <div
             className={clsx(
               'absolute -bottom-1 -right-1 h-4 w-4 rounded-full border-2 border-surface-900',
@@ -53,7 +78,7 @@ export function ProfileCard({ profile, onClick }: ProfileCardProps) {
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-2">
             <h3 className="font-semibold text-white truncate">
-              {profile.display_name || profile.name || 'Unknown Person'}
+              {profile.name || profile.display_name || 'Unknown Person'}
             </h3>
             <span className={clsx('badge', classification.class)}>
               {classification.label}

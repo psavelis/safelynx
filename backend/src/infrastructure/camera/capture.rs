@@ -208,13 +208,33 @@ impl CameraCapture {
                     let frame_num = *count;
                     drop(count);
 
+                    // nokhwa returns data in various formats - decode to RGB
+                    let rgb_data = match buffer.decode_image::<RgbFormat>() {
+                        Ok(decoded) => {
+                            if frame_num == 1 {
+                                info!(
+                                    "First frame decoded: {}x{}, RGB buffer {} bytes (expected {})",
+                                    decoded.width(),
+                                    decoded.height(),
+                                    decoded.as_raw().len(),
+                                    decoded.width() as usize * decoded.height() as usize * 3
+                                );
+                            }
+                            decoded.into_raw()
+                        }
+                        Err(e) => {
+                            warn!("Failed to decode frame to RGB: {}, using raw buffer", e);
+                            buffer.buffer().to_vec()
+                        }
+                    };
+
                     let frame = CapturedFrame {
                         camera_id,
                         frame_number: frame_num,
                         timestamp_ms: chrono::Utc::now().timestamp_millis(),
                         width: actual_width,
                         height: actual_height,
-                        data: buffer.buffer().to_vec(),
+                        data: rgb_data,
                     };
 
                     if frame_num % 30 == 0 {

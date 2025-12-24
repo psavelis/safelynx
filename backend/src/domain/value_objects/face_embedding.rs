@@ -30,6 +30,14 @@ impl FaceEmbedding {
         Self { values }
     }
 
+    /// Creates a zero-filled embedding of the given dimension.
+    /// Useful for placeholder embeddings when no real embedding is available.
+    pub fn zeros(dim: usize) -> Self {
+        Self {
+            values: vec![0.0; dim],
+        }
+    }
+
     /// Creates an embedding from a byte slice (for database storage).
     pub fn from_bytes(bytes: &[u8]) -> Option<Self> {
         if bytes.len() != EMBEDDING_DIMENSION * 4 {
