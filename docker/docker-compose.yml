@@ -1,0 +1,28 @@
+# Safelynx Docker Compose
+# PostgreSQL with persistent storage in user's Documents folder
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: safelynx-postgres
+    restart: unless-stopped
+    ports:
+      - "7888:5432"
+    environment:
+      POSTGRES_USER: safelynx
+      POSTGRES_PASSWORD: safelynx
+      POSTGRES_DB: safelynx
+    volumes:
+      - ${HOME}/Documents/Safelynx/db:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U safelynx"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - safelynx-network
+
+networks:
+  safelynx-network:
+    driver: bridge

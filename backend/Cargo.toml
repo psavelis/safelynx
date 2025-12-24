@@ -1,0 +1,83 @@
+[package]
+name = "safelynx-backend"
+version = "0.1.0"
+edition = "2021"
+authors = ["Safelynx Team"]
+description = "Face recognition security platform backend"
+license = "MIT"
+
+[[bin]]
+name = "safelynx-backend"
+path = "src/main.rs"
+
+[[bin]]
+name = "migrate"
+path = "src/bin/migrate.rs"
+
+[dependencies]
+# Async runtime
+tokio = { version = "1.35", features = ["full", "tracing"] }
+
+# Web framework
+axum = { version = "0.7", features = ["ws", "multipart"] }
+axum-extra = { version = "0.9", features = ["typed-header"] }
+tower = { version = "0.4", features = ["full"] }
+tower-http = { version = "0.5", features = ["cors", "trace", "fs"] }
+
+# Database
+sqlx = { version = "0.7", features = ["runtime-tokio", "postgres", "uuid", "chrono", "json"] }
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Image & Video processing
+image = "0.24"
+imageproc = "0.23"
+nokhwa = { version = "0.10", features = ["input-avfoundation", "output-threaded"] }
+
+# Face detection - using rustface (pure Rust)
+rustface = "0.1"
+
+# Machine learning for face embeddings
+ort = { version = "2.0.0-rc.10", features = ["load-dynamic"] }
+ndarray = "0.15"
+
+# Utilities
+uuid = { version = "1.6", features = ["v4", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+thiserror = "1.0"
+anyhow = "1.0"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+dotenvy = "0.15"
+config = "0.14"
+base64 = "0.21"
+bytes = "1.5"
+futures = "0.3"
+futures-util = "0.3"
+tokio-stream = "0.1"
+async-trait = "0.1"
+hostname = "0.3"
+crossbeam-channel = "0.5"
+
+# System
+sysinfo = "0.30"
+dirs = "5.0"
+
+[dev-dependencies]
+mockall = "0.12"
+tokio-test = "0.4"
+tempfile = "3.9"
+fake = { version = "2.9", features = ["derive", "uuid", "chrono"] }
+rstest = "0.18"
+
+[features]
+default = []
+integration = []
+metal = []
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1

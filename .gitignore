@@ -1,0 +1,62 @@
+# Rust
+/backend/target/
+**/*.rs.bk
+Cargo.lock
+
+# Node
+/frontend/node_modules/
+/frontend/dist/
+/frontend/.vite/
+*.log
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Data directories
+/data/
+*.db
+
+# Logs
+*.log
+logs/
+
+# Test coverage
+coverage/
+*.coverage
+htmlcov/
+.tox/
+.pytest_cache/
+
+# Build
+*.pdb
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# ONNX models (download separately)
+*.onnx
+models/
+
+# Recordings (managed by app)
+recordings/
+snapshots/
